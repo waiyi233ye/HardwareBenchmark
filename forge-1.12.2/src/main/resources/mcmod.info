@@ -2,7 +2,7 @@
   {
     "modid": "hwbench",
     "name": "HardwareBenchmark Forge",
-    "description": "MC Java版服务端硬件检测与CPU跑分mod。",
+    "description": "因租赁面板服卡顿而用 AI 编写的硬件检测与CPU跑分mod。",
     "version": "1.2.0",
     "authorList": ["HWBench"],
     "acceptedMinecraftVersions": "[1.12.2]",

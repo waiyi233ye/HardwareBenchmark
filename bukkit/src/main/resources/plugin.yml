@@ -3,7 +3,7 @@ version: '${project.version}'
 main: com.hwbench.HardwareBenchmarkPlugin
 ${mc.api.version.line}
 author: HWBench
-description: 硬件检测与CPU跑分插件，支持甜甜圈渲染跑分、内存/磁盘测试、Linux库自动补全
+description: "因租赁面板服卡顿而用 AI 编写的硬件检测与跑分插件：甜甜圈渲染跑分、内存/磁盘测试、Linux库自动补全"
 website: https://github.com/waiyi233ye/HardwareBenchmark
 
 commands:

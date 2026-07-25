@@ -8,6 +8,6 @@ version="1.2.0"
 displayName="HardwareBenchmark Forge"
 authors="HWBench"
 description='''
-MC Java版服务端硬件检测与CPU跑分mod - 甜甜圈渲染跑分、内存/磁盘测试、Linux库自动补全。
+因租赁面板服卡顿而用 AI 编写的硬件检测与CPU跑分mod - 甜甜圈渲染跑分、内存/磁盘测试、Linux库自动补全。
 支持服务器锁定（跑分期间踢出玩家、阻止登录），保证跑分结果准确。
 '''

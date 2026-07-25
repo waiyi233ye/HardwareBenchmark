@@ -29,6 +29,8 @@ HardwareBenchmark 是一款 Minecraft Java 版服务端插件，用于检测服�
 
 > 💡 **JAR 合并说明**：采用"方案A"按 Java 版本 + 平台合并，将 16 个版本专属 JAR 合并为 7 个发布 JAR，减少下载选择复杂度，同时保持跨版本兼容。
 
+📦 [前往 Release 页面下载 JAR](https://github.com/waiyi233ye/HardwareBenchmark/releases/tag/v1.2.0)
+
 ## 安装
 
 1. 根据上表选择对应的 JAR 文件
@@ -58,14 +60,15 @@ HardwareBenchmark 是一款 Minecraft Java 版服务端插件，用于检测服�
 
 ```
 HardwareBenchmark/
-├── common/          # 通用核心代码（硬件检测、跑分引擎、库管理）
-├── bukkit/          # Bukkit/Spigot/Paper 平台实现
-├── fabric/          # Fabric 平台实现
-├── forge/           # Forge 平台实现
-├── dist/            # 构建好的 JAR 文件
-├── site/            # 项目展示网站
-├── pom.xml          # Maven 父 POM
-└── shade_forge_jars.sh  # Forge 依赖打包脚本
+├── common/              # 通用核心代码（硬件检测、跑分引擎、库管理）
+├── bukkit/              # Bukkit/Spigot/Paper 平台实现（1.7.10~1.20.1）
+├── fabric/              # Fabric 平台实现（1.16.5~1.20.1）
+├── forge/               # Forge 1.18+ 平台实现
+├── forge-1.7.10/        # Forge 1.7.10 专用实现
+├── forge-1.12.2/        # Forge 1.12.2 专用实现
+├── forge-1.16.5/        # Forge 1.16.5 专用实现
+├── pom.xml              # Maven 父 POM
+└── .github/             # Issue 模板
 ```
 
 ## 技术特性

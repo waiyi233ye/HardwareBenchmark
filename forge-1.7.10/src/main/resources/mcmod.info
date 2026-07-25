@@ -2,7 +2,7 @@
   {
     "modid": "hwbench",
     "name": "HardwareBenchmark Forge",
-    "description": "因租赁面板服一直卡顿、被卡得不耐烦而用 AI 编写的硬件检测与CPU跑分mod。",
+    "description": "因租用的面板服一直卡顿、被卡得不耐烦，我用 AI 编写的硬件检测与跑分 mod：甜甜圈渲染、内存/磁盘测试、Linux 库自动补全。",
     "version": "1.2.0",
     "authorList": ["HWBench"]
   }

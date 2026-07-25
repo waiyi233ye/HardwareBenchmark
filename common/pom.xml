@@ -13,7 +13,7 @@
     <artifactId>HardwareBenchmark-common</artifactId>
     <packaging>jar</packaging>
     <name>HardwareBenchmark Common</name>
-    <description>共享核心模块：硬件检测、CPU/内存/磁盘跑分、Linux库自动补全</description>
+    <description>共享核心模块：硬件检测、CPU/内存/磁盘跑分、Linux 库自动补全</description>
 
     <properties>
         <java.release>8</java.release>

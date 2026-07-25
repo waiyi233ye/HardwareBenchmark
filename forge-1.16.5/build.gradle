@@ -1,0 +1,126 @@
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net/' }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        // ForgeGradle 5.1 支持 1.16.5（需 Gradle 6.x）
+        classpath 'net.minecraftforge.gradle:ForgeGradle:5.1.+'
+    }
+}
+
+apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'java'
+
+version = '1.2.0'
+group = 'com.hwbench'
+
+// 配置代理
+System.setProperty('http.proxyHost', '127.0.0.1')
+System.setProperty('http.proxyPort', '18080')
+System.setProperty('https.proxyHost', '127.0.0.1')
+System.setProperty('https.proxyPort', '18080')
+System.setProperty('http.nonProxyHosts', 'localhost|127.0.0.1')
+System.setProperty('https.nonProxyHosts', 'localhost|127.0.0.1')
+
+def mcVersion = '1.16.5'
+def forgeVersion = '36.2.42'
+def javaVersion = '8'  // 1.16.5 Forge 通常在 Java 8 运行
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+    maven { url = 'https://maven.minecraftforge.net/' }
+}
+
+minecraft {
+    // 使用 official mappings（避免 MCP config 下载问题）
+    mappings channel: 'official', version: '1.16.5'
+
+    runs {
+        client {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                hwbench { source sourceSets.main }
+            }
+        }
+        server {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                hwbench { source sourceSets.main }
+            }
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${mcVersion}-${forgeVersion}"
+
+    implementation 'com.hwbench:HardwareBenchmark-common:1.2.0'
+    implementation 'com.github.oshi:oshi-core:6.6.5'
+    implementation 'net.java.dev.jna:jna:5.15.0'
+    implementation 'net.java.dev.jna:jna-platform:5.15.0'
+    implementation 'com.google.code.gson:gson:2.11.0'
+    implementation 'org.slf4j:slf4j-api:2.0.16'
+}
+
+// 只对主源码的 compileJava 配置，不影响 ForgeGradle 内部 recompileMcp 任务
+compileJava {
+    options.encoding = 'UTF-8'
+    options.release = 8  // 用 Java 17 toolchain + --release 8 生成 Java 8 字节码
+}
+
+jar {
+    manifest {
+        attributes([
+            "Specification-Title"     : "HardwareBenchmark",
+            "Specification-Vendor"    : "HWBench",
+            "Specification-Version"   : "1.2.0",
+            "Implementation-Title"    : project.name,
+            "Implementation-Version"  : "1.2.0",
+            "Implementation-Vendor"   : "HWBench"
+        ])
+    }
+    from {
+        configurations.runtimeClasspath.collect { dep ->
+            if (dep.isDirectory()) {
+                dep
+            } else {
+                def name = dep.name
+                if (name.contains('HardwareBenchmark-common') ||
+                    name.contains('oshi-core') ||
+                    name.contains('jna') ||
+                    name.contains('gson') ||
+                    name.contains('slf4j-api')) {
+                    zipTree(dep)
+                } else {
+                    null
+                }
+            }
+        }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+    exclude 'module-info.class'
+    exclude 'net/minecraft/**'
+    exclude 'net/minecraftforge/**'
+    exclude 'com/mojang/**'
+    exclude 'io/netty/**'
+    exclude 'com/google/common/**'
+    exclude 'org/apache/**'
+    exclude 'assets/minecraft/**'
+    exclude 'data/minecraft/**'
+    exclude 'pack.png', 'version.json', 'squirrel.png', 'url.png', 'pack.mcmeta'
+    exclude '*.properties', '*.xib', '*.plist', 'LICENSE*', 'CREDITS*', 'Log4j*'
+    archiveBaseName = "HardwareBenchmark-forge-${mcVersion}"
+}

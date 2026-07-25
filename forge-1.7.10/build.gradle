@@ -1,0 +1,413 @@
+buildscript {
+    repositories {
+        mavenLocal()
+        maven { url = 'https://maven.minecraftforge.net/' }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        // ForgeGradle 2.3 patched to allow MC 1.7.10 (binary-patched MIN_VERSION 1.12 -> 0.00)
+        classpath 'net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT'
+    }
+}
+
+// Gradle 8 removed the legacy 'compile'/'testCompile' configurations that ForgeGradle 2.3 expects.
+// Create them before applying the plugin so plugin application succeeds.
+configurations {
+    compile
+    testCompile
+    apiCompile
+    deobfCompile
+    runtime
+    deobfProvided
+}
+
+// Gradle 8 removed SourceSet.getCompileConfigurationName() (replaced by getImplementationConfigurationName()).
+// ForgeGradle 2.3 calls the old method during plugin application. Patch SourceSet's metaClass to
+// redirect the old method to the new one before the plugin is applied.
+org.gradle.api.tasks.SourceSet.metaClass.getCompileConfigurationName = { -> delegate.implementationConfigurationName }
+org.gradle.api.tasks.SourceSet.metaClass.getCompileJavaConfigurationName = { -> delegate.implementationConfigurationName }
+org.gradle.api.tasks.SourceSet.metaClass.getCompileOnlyConfigurationName = { -> 'compileOnly' }
+
+// Gradle 8 removed Jar.setClassifier/setBaseName/setVersion (replaced by Property-based API).
+// ForgeGradle 2.3 calls setClassifier during plugin application. Add metaClass shims.
+org.gradle.api.tasks.bundling.Jar.metaClass.setClassifier = { String c -> if (c != null && !c.isEmpty()) delegate.archiveClassifier.set(c) }
+org.gradle.api.tasks.bundling.Jar.metaClass.setBaseName = { String c -> delegate.archiveBaseName.set(c ?: '') }
+org.gradle.api.tasks.bundling.Jar.metaClass.setVersion = { String c -> delegate.archiveVersion.set(c ?: '') }
+org.gradle.api.tasks.bundling.Jar.metaClass.setAppendix = { String c -> delegate.archiveAppendix.set(c ?: '') }
+org.gradle.api.tasks.bundling.Jar.metaClass.setExtension = { String c -> delegate.archiveExtension.set(c ?: 'jar') }
+org.gradle.api.tasks.bundling.Jar.metaClass.setArchiveName = { String c -> delegate.archiveFileName.set(c) }
+
+apply plugin: 'net.minecraftforge.gradle.forge'
+apply plugin: 'java'
+
+version = '1.2.0'
+group = 'com.hwbench'
+
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
+
+// Gradle 8 compatibility: ForgeGradle 2.3 task output properties are marked @Internal
+// (to pass validation), so Gradle no longer auto-creates their parent directories.
+tasks.configureEach { task ->
+    if (task.class.name.startsWith('net.minecraftforge.gradle')) {
+        task.doFirst {
+            task.class.methods.findAll {
+                it.name.startsWith('get') && it.parameterCount == 0 &&
+                it.returnType == java.io.File.class
+            }.each { m ->
+                try {
+                    def f = m.invoke(task)
+                    if (f != null && f.parentFile != null) {
+                        f.parentFile.mkdirs()
+                    }
+                } catch (Throwable ignored) {}
+            }
+        }
+    }
+}
+
+// 代理配置 (sandbox requires proxy for outbound)
+System.setProperty('http.proxyHost', '127.0.0.1')
+System.setProperty('http.proxyPort', '18080')
+System.setProperty('https.proxyHost', '127.0.0.1')
+System.setProperty('https.proxyPort', '18080')
+System.setProperty('http.nonProxyHosts', 'localhost|127.0.0.1')
+System.setProperty('https.nonProxyHosts', 'localhost|127.0.0.1')
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+    maven { url = 'https://maven.minecraftforge.net/' }
+}
+
+minecraft {
+    version = "1.7.10-10.13.4.1614-1.7.10"
+    runDir = "run"
+    mappings = "stable_12"
+    makeObfSourceJar = false
+}
+
+dependencies {
+    compile 'com.hwbench:HardwareBenchmark-common:1.2.0'
+    compile 'com.github.oshi:oshi-core:6.6.5'
+    compile 'net.java.dev.jna:jna:5.15.0'
+    compile 'net.java.dev.jna:jna-platform:5.15.0'
+    compile 'com.google.code.gson:gson:2.11.0'
+    compile 'org.slf4j:slf4j-api:2.0.16'
+    // Gradle 8: the 'compile' configuration is not on compileClasspath by default.
+    // Add the same deps to 'implementation' so they appear on the compile classpath.
+    implementation 'com.hwbench:HardwareBenchmark-common:1.2.0'
+    implementation 'com.github.oshi:oshi-core:6.6.5'
+    implementation 'net.java.dev.jna:jna:5.15.0'
+    implementation 'net.java.dev.jna:jna-platform:5.15.0'
+    implementation 'com.google.code.gson:gson:2.11.0'
+    implementation 'org.slf4j:slf4j-api:2.0.16'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+// Override applyBinaryPatches to skip patching (checksum mismatch with FG2.3 on 1.7.10).
+// For compilation we only need the deobf MC+Forge classes, not the forge binary patches.
+project.afterEvaluate {
+    def task = tasks.findByName('applyBinaryPatches')
+    if (task != null) {
+        // Capture input/output before clearing actions
+        def inJarFile = task.inputs.files.files.find { it.name.endsWith('.jar') }
+        def outJarFile = task.outputs.files.files.find { it.name.endsWith('.jar') }
+        // Clear the task's own @TaskAction (which does the checksum-failing binary patching)
+        task.actions.clear()
+        task.doLast {
+            if (inJarFile != null && outJarFile != null && inJarFile.exists()) {
+                outJarFile.parentFile.mkdirs()
+                java.nio.file.Files.copy(inJarFile.toPath(), outJarFile.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                logger.lifecycle("[HWBench] Skipped binary patching (1.7.10 compat): copied ${inJarFile.name} -> ${outJarFile.name}")
+            }
+        }
+    }
+
+    // Patch broken Access Transformer rules that ship in the 1.7.10 userdev forge_at.cfg.
+    // The modern ForgeGradle 2.3 AT parser rejects these 4 malformed lines:
+    //   - 3 constructor signatures missing the trailing V return type
+    //   - 1 Block constructor using obsolete net/minecraft/src/Material package path
+    // We rewrite forge_at.cfg in place AND regenerate merged_at.cfg (which FG2.3 only
+    // generates as a side effect of certain skipped tasks), so deobfMcSRG can read it.
+    def userdevDir = file("${project.gradle.gradleUserHomeDir}/caches/minecraft/net/minecraftforge/forge/1.7.10-10.13.4.1614-1.7.10/userdev")
+    def forgeAtFile = new File(userdevDir, "src/main/resources/forge_at.cfg")
+    def fmlAtFile = new File(userdevDir, "src/main/resources/fml_at.cfg")
+    def mergedAtFile = new File(userdevDir, "merged_at.cfg")
+
+    def patchAccessTransformers = tasks.create('patchAccessTransformers') {
+        description = "Patches malformed AT rules in 1.7.10 forge_at.cfg and regenerates merged_at.cfg"
+        doLast {
+            println "[HWBench-DEBUG] patchAccessTransformers doLast running"
+            println "[HWBench-DEBUG] userdevDir = ${userdevDir.absolutePath}"
+            println "[HWBench-DEBUG] forgeAtFile exists = ${forgeAtFile.exists()} path = ${forgeAtFile.absolutePath}"
+            println "[HWBench-DEBUG] fmlAtFile exists = ${fmlAtFile.exists()} path = ${fmlAtFile.absolutePath}"
+            if (forgeAtFile.exists()) {
+                String text = forgeAtFile.getText('UTF-8')
+                String orig = text
+                text = text.replace(
+                        'public net.minecraft.item.ItemPickaxe <init>(Lnet.minecraft.item.Item$ToolMaterial;)',
+                        'public net.minecraft.item.ItemPickaxe <init>(Lnet.minecraft.item.Item$ToolMaterial;)V')
+                text = text.replace(
+                        'public net.minecraft.item.ItemAxe <init>(Lnet.minecraft.item.Item$ToolMaterial;)',
+                        'public net.minecraft.item.ItemAxe <init>(Lnet.minecraft.item.Item$ToolMaterial;)V')
+                text = text.replace(
+                        'public net.minecraft.item.ItemSpade <init>(Lnet.minecraft.item.Item$ToolMaterial;)',
+                        'public net.minecraft.item.ItemSpade <init>(Lnet.minecraft.item.Item$ToolMaterial;)V')
+                text = text.replace(
+                        'public net.minecraft.block.Block <init>(Lnet/minecraft/src/Material;)V',
+                        'public net.minecraft.block.Block <init>(Lnet.minecraft.block.material.Material;)V')
+                // Also handle the case where a previous patch run already rewrote it to the wrong pkg
+                text = text.replace(
+                        'public net.minecraft.block.Block <init>(Lnet.minecraft.block.Material;)V',
+                        'public net.minecraft.block.Block <init>(Lnet.minecraft.block.material.Material;)V')
+                if (text != orig) {
+                    forgeAtFile.write(text, 'UTF-8')
+                    println "[HWBench] Patched broken AT rules in ${forgeAtFile}"
+                } else {
+                    println "[HWBench-DEBUG] forge_at.cfg already patched (no changes)"
+                }
+            }
+            // Regenerate merged_at.cfg = fml_at.cfg + forge_at.cfg (this is what FG2.3 expects)
+            if (fmlAtFile.exists() && forgeAtFile.exists()) {
+                String merged = fmlAtFile.getText('UTF-8') + "\n" + forgeAtFile.getText('UTF-8')
+                mergedAtFile.parentFile.mkdirs()
+                mergedAtFile.write(merged, 'UTF-8')
+                println "[HWBench] Regenerated ${mergedAtFile} (${merged.length()} chars)"
+            } else {
+                println "[HWBench-DEBUG] Cannot regenerate merged_at.cfg - source AT files missing"
+            }
+            // Copy astyle.cfg from userdev conf to MCP cache dir where fixMcSources expects it
+            def astyleSrc = new File(userdevDir, "conf/astyle.cfg")
+            def mcpCacheDir = file("${project.gradle.gradleUserHomeDir}/caches/minecraft/de/oceanlabs/mcp/mcp/1.7.10")
+            def astyleDst = new File(mcpCacheDir, "astyle.cfg")
+            if (astyleSrc.exists() && !astyleDst.exists()) {
+                mcpCacheDir.mkdirs()
+                java.nio.file.Files.copy(astyleSrc.toPath(), astyleDst.toPath())
+                println "[HWBench] Copied astyle.cfg -> ${astyleDst}"
+            }
+            // Create empty patches.zip if missing - applySourcePatches expects it but 1.7.10
+            // userdev ships fmlpatches.zip + forgepatches.zip instead. Source patches are not
+            // needed for our mod compilation (we only need deobfuscated MC API signatures).
+            def patchesZip = new File(userdevDir, "patches.zip")
+            if (!patchesZip.exists()) {
+                def jos = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(patchesZip))
+                jos.close()
+                println "[HWBench] Created empty patches.zip (source patches not needed for compilation)"
+            }
+
+            // Generate merged.srg for reobfJar (normally produced by the skipped genSrgs task).
+            // reobfJar remaps the compiled mod (MCP names) back to SRG names for production Forge.
+            // mcp-srg.srg is exactly the MCP->SRG mapping that merged.srg should contain.
+            def mcpSrgSrc = file("${project.gradle.gradleUserHomeDir}/caches/minecraft/de/oceanlabs/mcp/mcp_stable/12/1.7.10/srgs/mcp-srg.srg")
+            def mergedSrgDst = new File(userdevDir, "merged.srg")
+            if (mcpSrgSrc.exists() && !mergedSrgDst.exists()) {
+                java.nio.file.Files.copy(mcpSrgSrc.toPath(), mergedSrgDst.toPath())
+                println "[HWBench] Created merged.srg from mcp-srg.srg (${mergedSrgDst.length()} bytes) for reobfJar"
+            }
+        }
+    }
+
+    // Wire patchAccessTransformers to run after extractUserdev and before deobfMcSRG/deobfMcMCP
+    def extractUserdev = tasks.findByName('extractUserdev')
+    def deobfSrg = tasks.findByName('deobfMcSRG')
+    def deobfMcp = tasks.findByName('deobfMcMCP')
+    if (extractUserdev != null) {
+        patchAccessTransformers.mustRunAfter extractUserdev
+    }
+    if (deobfSrg != null) {
+        deobfSrg.dependsOn patchAccessTransformers
+    }
+    if (deobfMcp != null) {
+        deobfMcp.dependsOn patchAccessTransformers
+    }
+
+    // deobfMcMCP gets SKIPPED on 1.7.10 (extractMcpData/extractMcpMappings onlyIf=false),
+    // so the deobfed.jar (which supplies MCP-named MC + FML classes to the compile classpath)
+    // is never produced. We override deobfMcMCP to do the remap manually:
+    //   1. SpecialSource remaps srgBin.jar (SRG func_xxx names) -> MCP names using srg-mcp.srg
+    //   2. Merge with userdev/binaries.jar which contains the already-MCP-named FML classes
+    //      (cpw.mods.fml.*) that srgBin.jar lacks.
+    // The merged jar is written to the deobfed.jar location that ForgeGradle adds to the
+    // compile classpath.
+    def stableDir = file("${project.gradle.gradleUserHomeDir}/caches/minecraft/net/minecraftforge/forge/1.7.10-10.13.4.1614-1.7.10/stable/12")
+    def srgBinJar = new File(stableDir, "forge-1.7.10-10.13.4.1614-1.7.10-srgBin.jar")
+    def binariesJar = new File(userdevDir, "binaries.jar")
+    def srgMcpFile = file("${project.gradle.gradleUserHomeDir}/caches/minecraft/de/oceanlabs/mcp/mcp_stable/12/1.7.10/srgs/srg-mcp.srg")
+    def notchMcpFile = file("${project.gradle.gradleUserHomeDir}/caches/minecraft/de/oceanlabs/mcp/mcp_stable/12/1.7.10/srgs/notch-mcp.srg")
+    def deobfedOut = new File(stableDir, "forge-1.7.10-10.13.4.1614-1.7.10-deobfed.jar")
+    // forgeGradleMc configuration resolves to forgeBin-*.jar (NOT deobfed.jar), so we must
+    // write the merged jar to BOTH locations.
+    def forgeBinOut = new File(stableDir, "forgeBin-1.7.10-10.13.4.1614-1.7.10.jar")
+
+    // Locate a usable SpecialSource jar (shaded version bundles jopt-simple)
+    def ssCandidates = [
+        file("${project.gradle.gradleUserHomeDir}/caches/forge_gradle/maven_downloader/net/md-5/SpecialSource/1.11.0/SpecialSource-1.11.0-shaded.jar"),
+        file("${project.gradle.gradleUserHomeDir}/caches/forge_gradle/maven_downloader/net/md-5/SpecialSource/1.8.3/SpecialSource-1.8.3-shaded.jar"),
+        file("${project.gradle.gradleUserHomeDir}/caches/modules-2/files-2.1/net.md-5/SpecialSource/1.7.3/43f9434f08b3647affccfd151a9b437e07e6bff0/SpecialSource-1.7.3.jar")
+    ]
+    def specialSourceJar = ssCandidates.find { it.exists() }
+
+    if (deobfMcp != null) {
+        // deobfMcMCP ships with an onlyIf/enabled spec that evaluates false on 1.7.10
+        // (because extractMcpData/extractMcpMappings are skipped). onlyIf{} is ADDITIVE in
+        // Gradle, so we must use setOnlyIf to REPLACE existing specs, and force enabled=true.
+        deobfMcp.setOnlyIf { true }
+        deobfMcp.setEnabled(true)
+        deobfMcp.actions.clear()
+        deobfMcp.inputs.files srgBinJar, binariesJar, srgMcpFile, notchMcpFile
+        deobfMcp.outputs.file deobfedOut
+        deobfMcp.doLast {
+            if (!srgBinJar.exists()) {
+                throw new GradleException("srgBin.jar not found: ${srgBinJar}")
+            }
+            if (!binariesJar.exists()) {
+                throw new GradleException("userdev/binaries.jar not found: ${binariesJar}")
+            }
+            if (!srgMcpFile.exists()) {
+                throw new GradleException("srg-mcp.srg not found: ${srgMcpFile}")
+            }
+            if (!notchMcpFile.exists()) {
+                throw new GradleException("notch-mcp.srg not found: ${notchMcpFile}")
+            }
+            if (specialSourceJar == null) {
+                throw new GradleException("SpecialSource shaded jar not found in gradle caches")
+            }
+
+            // 1. Remap srgBin.jar SRG -> MCP via SpecialSource (MC classes: methods func_xxx -> MCP)
+            def remapped = new File(temporaryDir, "mcp-remapped.jar")
+            remapped.delete()
+            logger.lifecycle("[HWBench] Remapping ${srgBinJar.name} SRG->MCP via SpecialSource...")
+            project.exec {
+                executable = "${System.getProperty('java.home')}/bin/java"
+                args '-jar', specialSourceJar.absolutePath,
+                        '--in-jar', srgBinJar.absolutePath,
+                        '--srg-in', srgMcpFile.absolutePath,
+                        '--out-jar', remapped.absolutePath
+            }
+            if (!remapped.exists() || remapped.length() == 0) {
+                throw new GradleException("SpecialSource produced no output jar")
+            }
+
+            // 2. Remap binaries.jar Notch -> MCP via SpecialSource (FML classes).
+            //    binaries.jar FML classes are compiled against Notch-named MC classes (aa, yz, ...)
+            //    and call Notch-named MC methods. notch-mcp.srg remaps these to MCP names so they
+            //    resolve against the remapped MC jar. FML's own methods are already MCP-named and
+            //    won't match Notch source names in the srg, so they are left untouched.
+            def remappedFml = new File(temporaryDir, "fml-remapped.jar")
+            remappedFml.delete()
+            logger.lifecycle("[HWBench] Remapping ${binariesJar.name} Notch->MCP via SpecialSource...")
+            project.exec {
+                executable = "${System.getProperty('java.home')}/bin/java"
+                args '-jar', specialSourceJar.absolutePath,
+                        '--in-jar', binariesJar.absolutePath,
+                        '--srg-in', notchMcpFile.absolutePath,
+                        '--out-jar', remappedFml.absolutePath
+            }
+            if (!remappedFml.exists() || remappedFml.length() == 0) {
+                throw new GradleException("SpecialSource produced no FML output jar")
+            }
+
+            // 3. Merge remapped MC jar with remapped FML jar.
+            deobfedOut.parentFile.mkdirs()
+            if (deobfedOut.exists()) {
+                deobfedOut.delete()
+            }
+            def tmpMerged = new File(temporaryDir, "merged.jar")
+            tmpMerged.delete()
+            def jos = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(tmpMerged))
+            def seen = new HashSet<String>()
+            // First: remapped MC classes (MCP-named)
+            new java.util.zip.ZipFile(remapped).withCloseable { zf ->
+                def entries = zf.entries()
+                while (entries.hasMoreElements()) {
+                    def ze = entries.nextElement()
+                    if (ze.isDirectory()) continue
+                    if (seen.contains(ze.name)) continue
+                    seen.add(ze.name)
+                    jos.putNextEntry(new java.util.zip.ZipEntry(ze.name))
+                    jos.write(zf.getInputStream(ze).bytes)
+                    jos.closeEntry()
+                }
+            }
+            // Second: remapped FML + forge classes (skip duplicates already in remapped MC jar)
+            new java.util.zip.ZipFile(remappedFml).withCloseable { zf ->
+                def entries = zf.entries()
+                while (entries.hasMoreElements()) {
+                    def ze = entries.nextElement()
+                    if (ze.isDirectory()) continue
+                    if (seen.contains(ze.name)) continue
+                    seen.add(ze.name)
+                    jos.putNextEntry(new java.util.zip.ZipEntry(ze.name))
+                    jos.write(zf.getInputStream(ze).bytes)
+                    jos.closeEntry()
+                }
+            }
+            jos.close()
+            java.nio.file.Files.copy(tmpMerged.toPath(), deobfedOut.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            // Also write to forgeBin-*.jar - this is the artifact that forgeGradleMc
+            // configuration resolves to and what compileJava actually puts on its classpath.
+            java.nio.file.Files.copy(tmpMerged.toPath(), forgeBinOut.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            logger.lifecycle("[HWBench] Wrote merged deobfed.jar (${deobfedOut.length()} bytes, ${seen.size()} entries)")
+            logger.lifecycle("[HWBench] Wrote merged forgeBin.jar (${forgeBinOut.length()} bytes)")
+        }
+    }
+
+    // Remove stale deobfed.jar AND forgeBin-*.jar from earlier runs so the override re-runs
+    if (deobfedOut.exists()) {
+        deobfedOut.delete()
+        logger.lifecycle("[HWBench] Removed stale deobfed.jar")
+    }
+    if (forgeBinOut.exists()) {
+        forgeBinOut.delete()
+        logger.lifecycle("[HWBench] Removed stale forgeBin-*.jar")
+    }
+}
+
+jar {
+    manifest {
+        attributes([
+            "Specification-Title"     : "HardwareBenchmark",
+            "Specification-Vendor"    : "HWBench",
+            "Specification-Version"   : "1.2.0",
+            "Implementation-Title"    : project.name,
+            "Implementation-Version"  : "1.2.0",
+            "Implementation-Vendor"   : "HWBench"
+        ])
+    }
+    from {
+        configurations.compile.collect { dep ->
+            if (dep.isDirectory()) {
+                dep
+            } else {
+                def name = dep.name
+                if (name.contains('HardwareBenchmark-common') ||
+                    name.contains('oshi-core') ||
+                    name.contains('jna') ||
+                    name.contains('gson') ||
+                    name.contains('slf4j-api')) {
+                    zipTree(dep)
+                } else {
+                    []
+                }
+            }
+        }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+    exclude 'module-info.class'
+    exclude 'net/minecraft/**'
+    exclude 'net/minecraftforge/**'
+    exclude 'com/mojang/**'
+    exclude 'io/netty/**'
+    exclude 'com/google/common/**'
+    exclude 'org/apache/**'
+    archiveName = "HardwareBenchmark-forge-1.7.10-${project.version}.jar"
+}

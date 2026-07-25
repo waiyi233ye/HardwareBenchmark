@@ -1,0 +1,151 @@
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net/' }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT'
+    }
+}
+
+// Gradle 8 removed the legacy 'compile'/'testCompile'/'runtime' configurations that ForgeGradle 2.3 expects.
+// Create them before applying the plugin so plugin application succeeds.
+configurations {
+    compile
+    testCompile
+    apiCompile
+    deobfCompile
+    runtime
+    deobfProvided
+}
+
+// Gradle 8 removed SourceSet.getCompileConfigurationName() (replaced by getImplementationConfigurationName()).
+// ForgeGradle 2.3 calls the old method during plugin application. Patch SourceSet's metaClass to
+// redirect the old method to the new one before the plugin is applied.
+org.gradle.api.tasks.SourceSet.metaClass.getCompileConfigurationName = { -> delegate.implementationConfigurationName }
+org.gradle.api.tasks.SourceSet.metaClass.getCompileJavaConfigurationName = { -> delegate.implementationConfigurationName }
+org.gradle.api.tasks.SourceSet.metaClass.getCompileOnlyConfigurationName = { -> 'compileOnly' }
+
+// Gradle 8 removed Jar.setClassifier/setBaseName/setVersion (replaced by Property-based API).
+// ForgeGradle 2.3 calls setClassifier during plugin application. Add metaClass shims.
+org.gradle.api.tasks.bundling.Jar.metaClass.setClassifier = { String c -> if (c != null && !c.isEmpty()) delegate.archiveClassifier.set(c) }
+org.gradle.api.tasks.bundling.Jar.metaClass.setBaseName = { String c -> delegate.archiveBaseName.set(c ?: '') }
+org.gradle.api.tasks.bundling.Jar.metaClass.setVersion = { String c -> delegate.archiveVersion.set(c ?: '') }
+org.gradle.api.tasks.bundling.Jar.metaClass.setAppendix = { String c -> delegate.archiveAppendix.set(c ?: '') }
+org.gradle.api.tasks.bundling.Jar.metaClass.setExtension = { String c -> delegate.archiveExtension.set(c ?: 'jar') }
+org.gradle.api.tasks.bundling.Jar.metaClass.setArchiveName = { String c -> delegate.archiveFileName.set(c) }
+
+apply plugin: 'net.minecraftforge.gradle.forge'
+apply plugin: 'java'
+
+version = '1.2.0'
+group = 'com.hwbench'
+
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
+
+// Gradle 8 compatibility: ForgeGradle 2.3 task output properties are marked @Internal
+// (to pass validation), so Gradle no longer auto-creates their parent directories.
+// We create them manually before each ForgeGradle task runs.
+tasks.configureEach { task ->
+    if (task.class.name.startsWith('net.minecraftforge.gradle')) {
+        task.doFirst {
+            task.class.methods.findAll {
+                it.name.startsWith('get') && it.parameterCount == 0 &&
+                it.returnType == java.io.File.class
+            }.each { m ->
+                try {
+                    def f = m.invoke(task)
+                    if (f != null && f.parentFile != null) {
+                        f.parentFile.mkdirs()
+                    }
+                } catch (Throwable ignored) {}
+            }
+        }
+    }
+}
+
+// 代理配置 (sandbox requires proxy for outbound)
+System.setProperty('http.proxyHost', '127.0.0.1')
+System.setProperty('http.proxyPort', '18080')
+System.setProperty('https.proxyHost', '127.0.0.1')
+System.setProperty('https.proxyPort', '18080')
+System.setProperty('http.nonProxyHosts', 'localhost|127.0.0.1')
+System.setProperty('https.nonProxyHosts', 'localhost|127.0.0.1')
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+    maven { url = 'https://maven.minecraftforge.net/' }
+}
+
+minecraft {
+    // 14.23.5.2847 has userdev jar on maven.minecraftforge.net (2855+ don't)
+    version = "1.12.2-14.23.5.2847"
+    runDir = "run"
+    mappings = "stable_39"
+    makeObfSourceJar = false
+}
+
+dependencies {
+    compile 'com.hwbench:HardwareBenchmark-common:1.2.0'
+    compile 'com.github.oshi:oshi-core:6.6.5'
+    compile 'net.java.dev.jna:jna:5.15.0'
+    compile 'net.java.dev.jna:jna-platform:5.15.0'
+    compile 'com.google.code.gson:gson:2.11.0'
+    compile 'org.slf4j:slf4j-api:2.0.16'
+    // Gradle 8: the 'compile' configuration is not on compileClasspath by default.
+    // Add the same deps to 'implementation' so they appear on the compile classpath.
+    implementation 'com.hwbench:HardwareBenchmark-common:1.2.0'
+    implementation 'com.github.oshi:oshi-core:6.6.5'
+    implementation 'net.java.dev.jna:jna:5.15.0'
+    implementation 'net.java.dev.jna:jna-platform:5.15.0'
+    implementation 'com.google.code.gson:gson:2.11.0'
+    implementation 'org.slf4j:slf4j-api:2.0.16'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+jar {
+    manifest {
+        attributes([
+            "Specification-Title"     : "HardwareBenchmark",
+            "Specification-Vendor"    : "HWBench",
+            "Specification-Version"   : "1.2.0",
+            "Implementation-Title"    : project.name,
+            "Implementation-Version"  : "1.2.0",
+            "Implementation-Vendor"   : "HWBench"
+        ])
+    }
+    from {
+        configurations.compile.collect { dep ->
+            if (dep.isDirectory()) {
+                dep
+            } else {
+                def name = dep.name
+                if (name.contains('HardwareBenchmark-common') ||
+                    name.contains('oshi-core') ||
+                    name.contains('jna') ||
+                    name.contains('gson') ||
+                    name.contains('slf4j-api')) {
+                    zipTree(dep)
+                } else {
+                    []
+                }
+            }
+        }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+    exclude 'module-info.class'
+    exclude 'net/minecraft/**'
+    exclude 'net/minecraftforge/**'
+    exclude 'com/mojang/**'
+    exclude 'io/netty/**'
+    exclude 'com/google/common/**'
+    exclude 'org/apache/**'
+    archiveName = "HardwareBenchmark-forge-1.12.2-${project.version}.jar"
+}

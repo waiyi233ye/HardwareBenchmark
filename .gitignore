@@ -1,0 +1,44 @@
+# 测试服务器目录
+test-server-*
+test-bukkit-*
+test-fabric-*
+
+# Maven 构建产物
+target/
+
+# 临时文件和日志
+*.log
+*.orig
+*.bak
+
+# IDE 文件
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# Trae 配置
+.trae/
+
+# 截图和临时脚本
+site-shots/
+screenshot.py
+patch_class.py
+
+# 服务器 JAR 和库文件（不需要版本控制）
+*.jar
+!dist/*.jar
+
+# Maven 设置（含凭据）
+settings.xml
+
+# 测试结果
+test-results/

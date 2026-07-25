@@ -1,0 +1,65 @@
+# HardwareBenchmark 配置文件
+
+# 跑分设置
+benchmark:
+  # CPU跑分
+  cpu:
+    # 甜甜圈渲染帧数
+    donut-frames: 300
+    # 计算跑分迭代次数
+    compute-iterations: 5
+    # 多线程矩阵大小
+    matrix-size: 512
+    # 是否在控制台显示甜甜圈动画
+    show-donut-animation: true
+
+  # 内存跑分
+  memory:
+    # 测试数组大小 (MB)
+    array-size-mb: 256
+    # 读写循环次数
+    iterations: 10
+
+  # 磁盘跑分
+  disk:
+    # 测试文件大小 (MB)
+    file-size-mb: 512
+    # 块大小 (KB)
+    block-size-kb: 64
+    # 随机IO测试次数
+    random-io-count: 5000
+
+# 服务器控制
+server-control:
+  # 跑分时踢出玩家的消息
+  kick-message: "&c[硬件跑分] 服务器正在进行硬件跑分测试，请稍后重新连接。"
+  # 锁定时登录拒绝消息
+  lock-message: "&c[硬件跑分] 服务器正在跑分中，暂时无法进入。"
+  # 跑分完成后是否自动解锁
+  auto-unlock: true
+  # 踢出玩家前等待时间（秒）
+  kick-delay: 3
+
+# Linux库自动补全
+library-manager:
+  # 是否启用自动补全
+  enabled: true
+  # 包管理器 (auto/apt/yum/dnf/pacman)
+  package-manager: auto
+  # 需要检查的库
+  required-libraries:
+    - "lshw"
+    - "lm-sensors"
+    - "pciutils"
+    - "smartmontools"
+  # 自动安装（false则仅检查报告）
+  auto-install: true
+
+# 结果报告
+report:
+  # 是否保存到文件
+  save-to-file: true
+  # 报告目录（相对于服务器根目录）
+  output-dir: "hwbench-reports"
+  # 是否在控制台显示详细结果
+  verbose-console: true

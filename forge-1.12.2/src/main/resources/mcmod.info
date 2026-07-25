@@ -1,0 +1,11 @@
+[
+  {
+    "modid": "hwbench",
+    "name": "HardwareBenchmark Forge",
+    "description": "MC Java版服务端硬件检测与CPU跑分mod。",
+    "version": "1.2.0",
+    "authorList": ["HWBench"],
+    "acceptedMinecraftVersions": "[1.12.2]",
+    "acceptedRemoteVersions": "*"
+  }
+]

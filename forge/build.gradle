@@ -1,0 +1,184 @@
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net/' }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:6.0.+'
+    }
+}
+
+apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'java'
+
+version = '1.2.0'
+group = 'com.hwbench'
+
+// 参数化 MC 版本（默认 1.20.1）
+def mcVersion = project.findProperty('mc.version') ?: '1.20.1'
+def forgeVersion = project.findProperty('forge.version') ?: '47.3.0'
+// 1.16.5 不支持 official mappings，需使用 MCP snapshot
+def defaultMappingsChannel = 'official'
+def defaultMappingsVersion = mcVersion
+if (mcVersion.startsWith('1.16')) {
+    defaultMappingsChannel = 'snapshot'
+    defaultMappingsVersion = '20210309-1.16.5'
+}
+def mappingsChannel = project.findProperty('mappings.channel') ?: defaultMappingsChannel
+def mappingsVersion = project.findProperty('mappings.version') ?: defaultMappingsVersion
+
+// Java 版本（1.18+ 用 17，1.16.5 用 11，1.12.2/1.7.10 用 8）
+def javaVersion = '17'
+if (mcVersion.startsWith('1.16')) javaVersion = '11'
+else if (mcVersion.startsWith('1.12') || mcVersion.startsWith('1.7')) javaVersion = '8'
+
+// 是否将第三方库（OSHI/JNA/Gson/SLF4J）shade 进 JAR。
+// Forge 1.18+ 使用 JPMS 模块系统，shade JNA/OSHI 会导致 split-package 冲突
+//（ModLauncher 拒绝加载：Modules hwbench and com.sun.jna.platform export package ...）。
+// 1.18+ 改用 /proc 文件系统检测硬件，不依赖 OSHI，因此不需要 shade。
+// 1.16.5 及更早不使用 JPMS，可以 shade 第三方库。
+def shouldShadeDeps = !(mcVersion ==~ /^1\.(18|19|20)\..*/)
+
+
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(javaVersion == '8' ? '17' : javaVersion)
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+    maven { url = 'https://maven.minecraftforge.net/' }
+}
+
+minecraft {
+    mappings channel: mappingsChannel, version: mappingsVersion
+
+    runs {
+        client {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                hwbench { source sourceSets.main }
+            }
+        }
+        server {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                hwbench { source sourceSets.main }
+            }
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${mcVersion}-${forgeVersion}"
+
+    // HardwareBenchmark-common 始终 shade（模组自有核心库）
+    implementation 'com.hwbench:HardwareBenchmark-common:1.2.0'
+
+    if (shouldShadeDeps) {
+        // 所有版本：shade 第三方库以确保版本一致性
+        implementation 'com.github.oshi:oshi-core:6.6.5'
+        implementation 'net.java.dev.jna:jna:5.15.0'
+        implementation 'net.java.dev.jna:jna-platform:5.15.0'
+        implementation 'com.google.code.gson:gson:2.11.0'
+        implementation 'org.slf4j:slf4j-api:2.0.16'
+    } else {
+        compileOnly 'com.github.oshi:oshi-core:6.6.5'
+        compileOnly 'net.java.dev.jna:jna:5.15.0'
+        compileOnly 'net.java.dev.jna:jna-platform:5.15.0'
+        compileOnly 'com.google.code.gson:gson:2.11.0'
+        compileOnly 'org.slf4j:slf4j-api:2.0.16'
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = Integer.parseInt(javaVersion)
+}
+
+// 按 MC 版本确定 Forge javafml loaderVersion（mods.toml）
+// 1.18.2=40, 1.19.2=43, 1.20.1=47。写错会导致 Forge 在加载早期拒绝模组。
+def loaderVersion
+switch (mcVersion) {
+    case ~/^1\.18\..*/: loaderVersion = '[40,)'; break
+    case ~/^1\.19\..*/: loaderVersion = '[43,)'; break
+    case ~/^1\.20\..*/: loaderVersion = '[47,)'; break
+    case ~/^1\.16\..*/: loaderVersion = '[36,)'; break
+    default: loaderVersion = '[47,)'
+}
+
+// 构建时替换 mods.toml 中的 loaderVersion 占位符
+processResources {
+    filesMatching('META-INF/mods.toml') {
+        expand 'loaderVersion': loaderVersion
+    }
+}
+
+// 按版本排除不同的源文件
+// - 1.16.5 使用 HWBenchForgeLegacy.java（MCP mappings）
+// - 1.18+ 使用 HWBenchForge.java（official mappings）
+sourceSets {
+    main {
+        java {
+            if (mcVersion.startsWith('1.16') || mcVersion.startsWith('1.12') || mcVersion.startsWith('1.7')) {
+                exclude 'com/hwbench/forge/HWBenchForge.java'
+            } else {
+                exclude 'com/hwbench/forge/HWBenchForgeLegacy.java'
+            }
+        }
+    }
+}
+
+jar {
+    manifest {
+        attributes([
+            "Specification-Title"     : "HardwareBenchmark",
+            "Specification-Vendor"    : "HWBench",
+            "Specification-Version"   : "1.2.0",
+            "Implementation-Title"    : project.name,
+            "Implementation-Version"  : "1.2.0",
+            "Implementation-Vendor"   : "HWBench"
+        ])
+    }
+    from {
+        configurations.runtimeClasspath.collect { dep ->
+            if (dep.isDirectory()) {
+                dep
+            } else {
+                def name = dep.name
+                // HardwareBenchmark-common 始终 shade（模组自有核心库）
+                if (name.contains('HardwareBenchmark-common')) {
+                    zipTree(dep)
+                } else if (shouldShadeDeps &&
+                    (name.contains('oshi-core') || name.contains('jna') ||
+                     name.contains('gson') || name.contains('slf4j-api'))) {
+                    // 1.16.5 及更早：shade 第三方库
+                    zipTree(dep)
+                } else {
+                    null
+                }
+            }
+        }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+    // 排除所有路径的 module-info.class（含多版本 JAR 的 META-INF/versions/9/module-info.class），
+    // 避免模组 JAR 被识别为 JPMS 命名模块后与 Forge 自带库产生分包冲突。
+    exclude '**/module-info.class'
+    exclude 'net/minecraft/**'
+    exclude 'net/minecraftforge/**'
+    exclude 'com/mojang/**'
+    exclude 'io/netty/**'
+    exclude 'com/google/common/**'
+    exclude 'org/apache/**'
+    exclude 'assets/minecraft/**'
+    exclude 'data/minecraft/**'
+    exclude 'pack.png', 'version.json', 'squirrel.png', 'url.png'
+    exclude '*.properties', '*.xib', '*.plist', 'LICENSE*', 'CREDITS*', 'Log4j*'
+    archiveBaseName = "HardwareBenchmark-forge-${mcVersion}"
+}

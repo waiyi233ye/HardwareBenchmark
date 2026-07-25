@@ -1,0 +1,8 @@
+Manifest-Version: 1.0
+Implementation-Title: HardwareBenchmark-forge-1.7.10
+Implementation-Version: 1.2.0
+Specification-Vendor: HWBench
+Specification-Title: HardwareBenchmark
+Specification-Version: 1.2.0
+Implementation-Vendor: HWBench
+

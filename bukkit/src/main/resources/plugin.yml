@@ -1,0 +1,31 @@
+name: HardwareBenchmark
+version: '${project.version}'
+main: com.hwbench.HardwareBenchmarkPlugin
+${mc.api.version.line}
+author: HWBench
+description: 硬件检测与CPU跑分插件，支持甜甜圈渲染跑分、内存/磁盘测试、Linux库自动补全
+website: https://github.com/hwbench
+
+commands:
+  hwbench:
+    description: 硬件检测与跑分主命令
+    usage: |
+      /hwbench - 查看帮助
+      /hwbench detect - 检测硬件信息
+      /hwbench cpu - CPU甜甜圈跑分
+      /hwbench mem - 内存读写跑分
+      /hwbench disk - 磁盘IO跑分
+      /hwbench all - 运行全部跑分
+      /hwbench libs - 检查并补全Linux运行库
+      /hwbench lock - 手动锁定服务器（踢出玩家）
+      /hwbench unlock - 手动解锁服务器
+    aliases: [hw, benchmark]
+    permission: hwbench.use
+
+permissions:
+  hwbench.use:
+    description: 允许使用硬件跑分插件
+    default: op
+  hwbench.admin:
+    description: 允许管理硬件跑分插件
+    default: op

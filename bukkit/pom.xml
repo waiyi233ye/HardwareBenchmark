@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.hwbench</groupId>
+        <artifactId>HardwareBenchmark-parent</artifactId>
+        <version>1.2.0</version>
+    </parent>
+
+    <artifactId>HardwareBenchmark-bukkit</artifactId>
+    <packaging>jar</packaging>
+    <name>HardwareBenchmark Bukkit/Spigot</name>
+    <description>Bukkit/Spigot/Paper 端：硬件检测与跑分插件</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.hwbench</groupId>
+            <artifactId>HardwareBenchmark-common</artifactId>
+        </dependency>
+        <!-- Spigot API (provided by server) -->
+        <dependency>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot-api</artifactId>
+            <version>${spigot.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>HardwareBenchmark-${project.version}-bukkit-${mc.label}</finalName>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <release>${java.release}</release>
+                    <encoding>UTF-8</encoding>
+                    <excludes>
+                        <exclude>**/StandaloneDemo.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <artifactSet>
+                                <includes>
+                                    <include>com.hwbench:HardwareBenchmark-common</include>
+                                    <include>com.github.oshi:oshi-core</include>
+                                    <include>net.java.dev.jna:*</include>
+                                    <include>com.google.code.gson:gson</include>
+                                    <include>org.slf4j:slf4j-api</include>
+                                </includes>
+                            </artifactSet>
+                            <relocations>
+                                <relocation>
+                                    <pattern>oshi</pattern>
+                                    <shadedPattern>com.hwbench.lib.oshi</shadedPattern>
+                                </relocation>
+                                <!-- JNA 不重定位：JNA 原生库 libjnidispatch.so 的 JNI 符号为
+                                     Java_com_sun_jna_Native_*，重定位类名会导致 UnsatisfiedLinkError -->
+                                <relocation>
+                                    <pattern>com.google.gson</pattern>
+                                    <shadedPattern>com.hwbench.lib.gson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.slf4j</pattern>
+                                    <shadedPattern>com.hwbench.lib.slf4j</shadedPattern>
+                                </relocation>
+                            </relocations>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>module-info.class</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- 1.7.10 特殊配置：排除 1.8+ 才有的 AsyncPreLoginListener -->
+        <profile>
+            <id>mc-1.7.10</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <release>8</release>
+                            <encoding>UTF-8</encoding>
+                            <excludes>
+                                <exclude>**/StandaloneDemo.java</exclude>
+                                <exclude>**/AsyncPreLoginListener.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

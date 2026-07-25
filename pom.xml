@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.hwbench</groupId>
+    <artifactId>HardwareBenchmark-parent</artifactId>
+    <version>1.2.0</version>
+    <packaging>pom</packaging>
+
+    <name>HardwareBenchmark Parent</name>
+    <description>MC Java版服务端硬件检测与跑分 - 多端（Bukkit/Forge/Fabric）多版本</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <oshi.version>6.6.5</oshi.version>
+        <gson.version>2.11.0</gson.version>
+        <junit.version>5.11.4</junit.version>
+    </properties>
+
+    <modules>
+        <module>common</module>
+        <module>bukkit</module>
+        <!-- forge 和 fabric 使用独立 Gradle 项目（ForgeGradle/Fabric Loom） -->
+    </modules>
+
+    <repositories>
+        <repository>
+            <id>spigotmc-repo</id>
+            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+        </repository>
+        <repository>
+            <id>sonatype</id>
+            <url>https://oss.sonatype.org/content/groups/public/</url>
+        </repository>
+        <!-- elmakers 镜像保留旧版 spigot-api（如 1.7.10） -->
+        <repository>
+            <id>elmakers-mirror</id>
+            <url>https://maven.elmakers.com/repository/</url>
+        </repository>
+    </repositories>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.hwbench</groupId>
+                <artifactId>HardwareBenchmark-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.oshi</groupId>
+                <artifactId>oshi-core</artifactId>
+                <version>${oshi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.code.gson</groupId>
+                <artifactId>gson</artifactId>
+                <version>${gson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>${junit.version}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.13.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>3.6.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.5.2</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+    <profiles>
+        <!-- MC 1.20.1（默认） -->
+        <profile>
+            <id>mc-1.20.1</id>
+            <activation><activeByDefault>true</activeByDefault></activation>
+            <properties>
+                <mc.label>1.20.1</mc.label>
+                <mc.short>1.20</mc.short>
+                <spigot.version>1.20.1-R0.1-SNAPSHOT</spigot.version>
+                <mc.api.version.line>api-version: '1.20'</mc.api.version.line>
+                <java.release>17</java.release>
+                <forge.mc.version>1.20.1</forge.mc.version>
+                <forge.version>47.3.0</forge.version>
+                <forge.mcp.channel>official</forge.mcp.channel>
+                <fabric.mc.version>1.20.1</fabric.mc.version>
+                <fabric.yarn.version>1.20.1+build.10</fabric.yarn.version>
+                <fabric.loader.version>0.15.11</fabric.loader.version>
+                <fabric.api.version>0.92.0+1.20.1</fabric.api.version>
+            </properties>
+        </profile>
+
+        <!-- MC 1.19.2 -->
+        <profile>
+            <id>mc-1.19.2</id>
+            <properties>
+                <mc.label>1.19.2</mc.label>
+                <mc.short>1.19</mc.short>
+                <spigot.version>1.19.2-R0.1-SNAPSHOT</spigot.version>
+                <mc.api.version.line>api-version: '1.19'</mc.api.version.line>
+                <java.release>17</java.release>
+                <forge.mc.version>1.19.2</forge.mc.version>
+                <forge.version>43.4.0</forge.version>
+                <forge.mcp.channel>official</forge.mcp.channel>
+                <fabric.mc.version>1.19.2</fabric.mc.version>
+                <fabric.yarn.version>1.19.2+build.28</fabric.yarn.version>
+                <fabric.loader.version>0.15.11</fabric.loader.version>
+                <fabric.api.version>0.77.0+1.19.2</fabric.api.version>
+            </properties>
+        </profile>
+
+        <!-- MC 1.18.2 -->
+        <profile>
+            <id>mc-1.18.2</id>
+            <properties>
+                <mc.label>1.18.2</mc.label>
+                <mc.short>1.18</mc.short>
+                <spigot.version>1.18.2-R0.1-SNAPSHOT</spigot.version>
+                <mc.api.version.line>api-version: '1.18'</mc.api.version.line>
+                <java.release>17</java.release>
+                <forge.mc.version>1.18.2</forge.mc.version>
+                <forge.version>40.3.0</forge.version>
+                <forge.mcp.channel>official</forge.mcp.channel>
+                <fabric.mc.version>1.18.2</fabric.mc.version>
+                <fabric.yarn.version>1.18.2+build.4</fabric.yarn.version>
+                <fabric.loader.version>0.15.11</fabric.loader.version>
+                <fabric.api.version>0.77.0+1.18.2</fabric.api.version>
+            </properties>
+        </profile>
+
+        <!-- MC 1.16.5 -->
+        <profile>
+            <id>mc-1.16.5</id>
+            <properties>
+                <mc.label>1.16.5</mc.label>
+                <mc.short>1.16</mc.short>
+                <spigot.version>1.16.5-R0.1-SNAPSHOT</spigot.version>
+                <mc.api.version.line>api-version: '1.16'</mc.api.version.line>
+                <java.release>8</java.release>
+                <forge.mc.version>1.16.5</forge.mc.version>
+                <forge.version>36.2.42</forge.version>
+                <forge.mcp.channel>official</forge.mcp.channel>
+                <fabric.mc.version>1.16.5</fabric.mc.version>
+                <fabric.yarn.version>1.16.5+build.10</fabric.yarn.version>
+                <fabric.loader.version>0.15.11</fabric.loader.version>
+                <fabric.api.version>0.42.0+1.16</fabric.api.version>
+            </properties>
+        </profile>
+
+        <!-- MC 1.12.2（仅 Bukkit + Forge，无 Fabric） -->
+        <profile>
+            <id>mc-1.12.2</id>
+            <properties>
+                <mc.label>1.12.2</mc.label>
+                <mc.short>1.12</mc.short>
+                <spigot.version>1.12.2-R0.1-SNAPSHOT</spigot.version>
+                <mc.api.version.line></mc.api.version.line>
+                <java.release>8</java.release>
+                <forge.mc.version>1.12.2</forge.mc.version>
+                <forge.version>14.23.5.2860</forge.version>
+                <forge.mcp.channel>snapshot</forge.mcp.channel>
+                <forge.mcp.version>20171212</forge.mcp.version>
+                <fabric.skip>true</fabric.skip>
+            </properties>
+        </profile>
+
+        <!-- MC 1.7.10（仅 Bukkit + Forge，无 Fabric） -->
+        <profile>
+            <id>mc-1.7.10</id>
+            <properties>
+                <mc.label>1.7.10</mc.label>
+                <mc.short>1.7</mc.short>
+                <spigot.version>1.7.10-R0.1-SNAPSHOT</spigot.version>
+                <mc.api.version.line></mc.api.version.line>
+                <java.release>8</java.release>
+                <forge.mc.version>1.7.10</forge.mc.version>
+                <forge.version>10.13.4.1614-1.7.10</forge.version>
+                <forge.mcp.channel>stable</forge.mcp.channel>
+                <forge.mcp.version>12</forge.mcp.version>
+                <fabric.skip>true</fabric.skip>
+            </properties>
+        </profile>
+    </profiles>
+</project>

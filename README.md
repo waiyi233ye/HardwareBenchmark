@@ -27,7 +27,7 @@ HardwareBenchmark 是一款 Minecraft Java 版服务端插件，用于检测服�
 | Forge | 1.16.5 | Java 8 | `HardwareBenchmark-1.2.0-forge-1.16.5.jar` |
 | Forge | 1.18.2, 1.19.2, 1.20.1 | Java 17 | `HardwareBenchmark-1.2.0-forge-1.18plus.jar` |
 
-> 💡 **JAR 合并说明**：采用"方案A"按 Java 版本 + 平台合并，将 16 个版本专属 JAR 合并为 7 个发布 JAR，减少下载选择复杂度，同时保持跨版本兼容。
+> 💡 **JAR 合并说明**：采用通用 JAR 合并策略（按 Java 版本与平台分组），将 16 个版本专属 JAR 合并为 7 个发布 JAR，减少下载选择复杂度，同时保持跨版本兼容。
 
 📦 [前往 Release 页面下载 JAR](https://github.com/waiyi233ye/HardwareBenchmark/releases/tag/v1.2.0)
 

@@ -6,11 +6,11 @@
   "description": "MC Java版服务端硬件检测与CPU跑分mod - 甜甜圈渲染跑分、内存/磁盘测试、Linux库自动补全。",
   "authors": ["HWBench"],
   "contact": {
-    "homepage": "https://github.com/hwbench",
-    "sources": "https://github.com/hwbench"
+    "homepage": "https://github.com/waiyi233ye/HardwareBenchmark",
+    "sources": "https://github.com/waiyi233ye/HardwareBenchmark",
+    "issues": "https://github.com/waiyi233ye/HardwareBenchmark/issues"
   },
   "license": "MIT",
-  "icon": "assets/hwbench/icon.png",
   "environment": "server",
   "entrypoints": {
     "main": [
@@ -22,8 +22,5 @@
     "${fabricApiId}": "*",
     "minecraft": ">=1.16",
     "java": ">=17"
-  },
-  "suggests": {
-    "another-mod": "*"
   }
 }

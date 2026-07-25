@@ -84,4 +84,4 @@ MIT License
 
 ## 反馈
 
-发现问题请提交 [Issue](../../issues)。
+发现问题请提交 [Issue](https://github.com/waiyi233ye/HardwareBenchmark/issues)。

@@ -4,7 +4,7 @@ main: com.hwbench.HardwareBenchmarkPlugin
 ${mc.api.version.line}
 author: HWBench
 description: 硬件检测与CPU跑分插件，支持甜甜圈渲染跑分、内存/磁盘测试、Linux库自动补全
-website: https://github.com/hwbench
+website: https://github.com/waiyi233ye/HardwareBenchmark
 
 commands:
   hwbench:

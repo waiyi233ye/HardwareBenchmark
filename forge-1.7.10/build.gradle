@@ -67,14 +67,6 @@ tasks.configureEach { task ->
     }
 }
 
-// 代理配置 (sandbox requires proxy for outbound)
-System.setProperty('http.proxyHost', '127.0.0.1')
-System.setProperty('http.proxyPort', '18080')
-System.setProperty('https.proxyHost', '127.0.0.1')
-System.setProperty('https.proxyPort', '18080')
-System.setProperty('http.nonProxyHosts', 'localhost|127.0.0.1')
-System.setProperty('https.nonProxyHosts', 'localhost|127.0.0.1')
-
 repositories {
     mavenCentral()
     mavenLocal()

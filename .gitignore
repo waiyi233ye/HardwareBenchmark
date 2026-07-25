@@ -64,3 +64,7 @@ site/
 
 # 发布说明（在 Release body 里）
 RELEASE_NOTES.md
+
+# 沙箱发布辅助脚本（含本地路径，不应入库）
+publish_to_github.sh
+shade_forge_jars.sh

@@ -42,3 +42,25 @@ settings.xml
 
 # 测试结果
 test-results/
+
+# Gradle 构建缓存和产物
+.gradle/
+build/
+
+# 编译的 class 文件
+*.class
+
+# 开发工具和 patch
+fg-patch/
+
+# 测试脚本
+test_*.py
+
+# 构建产物（JAR 在 Release Assets）
+dist/
+
+# 展示网站
+site/
+
+# 发布说明（在 Release body 里）
+RELEASE_NOTES.md

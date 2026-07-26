@@ -3,11 +3,29 @@
 # Compiles with Java 8 against stub annotation types, then stages and packages.
 set -e
 
-cd /workspace/forge-container
+# Resolve script directory (portable: works from any cwd)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR/forge-container"
 
-JAVA8=/root/.local/share/mise/installs/java/temurin-8.0.482+8/bin/java
-JAVAC8=/root/.local/share/mise/installs/java/temurin-8.0.482+8/bin/javac
-JAR8=/root/.local/share/mise/installs/java/temurin-8.0.482+8/bin/jar
+# Locate Java 8 toolchain: prefer $JAVA8_HOME, fall back to PATH lookup
+if [ -n "$JAVA8_HOME" ]; then
+    JAVA8="$JAVA8_HOME/bin/java"
+    JAVAC8="$JAVA8_HOME/bin/javac"
+    JAR8="$JAVA8_HOME/bin/jar"
+else
+    JAVA8="${JAVA8:-java}"
+    JAVAC8="${JAVAC8:-javac}"
+    JAR8="${JAR8:-jar}"
+fi
+
+# Read version from ForgeContainerBase.java (single source of truth)
+VERSION=$(grep -oE 'VERSION = "[^"]+"' src/main/java/com/hwbench/forge/container/ForgeContainerBase.java \
+    | head -1 | cut -d'"' -f2)
+if [ -z "$VERSION" ]; then
+    echo "ERROR: could not read VERSION from ForgeContainerBase.java" >&2
+    exit 1
+fi
+echo "Building Forge container JAR v$VERSION"
 
 # Stub classpath: Forge (net.minecraftforge) + NeoForge (net.neoforged) + cpw stubs
 STUB_CP="build/stub-classes:build/cpw-only"
@@ -45,9 +63,9 @@ echo "  Stage contents:"
 find build/stage -type f | sort
 
 echo "=== Step 3: Package container JAR ==="
-DIST=/workspace/dist
+DIST="$SCRIPT_DIR/dist"
 mkdir -p "$DIST"
-OUT_JAR="$DIST/HardwareBenchmark-2.0.0-forge-universal.jar"
+OUT_JAR="$DIST/HardwareBenchmark-${VERSION}-forge-universal.jar"
 rm -f "$OUT_JAR"
 cd build/stage
 "$JAR8" cfm "$OUT_JAR" META-INF/MANIFEST.MF \

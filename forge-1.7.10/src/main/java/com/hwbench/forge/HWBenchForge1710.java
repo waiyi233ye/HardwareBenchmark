@@ -38,7 +38,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *  - 登录事件: cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedInEvent
  *    （需在 FMLCommonHandler.instance().bus() 上注册）
  */
-@Mod(modid = HWBenchForge1710.MODID, name = "HardwareBenchmark", version = "1.2.0")
+@Mod(modid = HWBenchForge1710.MODID, name = "HardwareBenchmark", version = "1.2.1")
 public class HWBenchForge1710 {
     public static final String MODID = "hwbench";
     private static final Logger LOGGER = LogManager.getLogger("HWBench");

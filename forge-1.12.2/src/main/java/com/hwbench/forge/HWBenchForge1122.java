@@ -42,7 +42,7 @@ import java.util.ArrayList;
  *  - 文本: TextComponentString
  *  - 玩家: EntityPlayerMP
  */
-@Mod(modid = HWBenchForge1122.MODID, name = "HardwareBenchmark", version = "1.2.0", acceptableRemoteVersions = "*")
+@Mod(modid = HWBenchForge1122.MODID, name = "HardwareBenchmark", version = "1.2.1", acceptableRemoteVersions = "*")
 public class HWBenchForge1122 {
     public static final String MODID = "hwbench";
     private static final Logger LOGGER = LogManager.getLogger("HWBench");

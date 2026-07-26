@@ -41,7 +41,7 @@ org.gradle.api.tasks.bundling.Jar.metaClass.setArchiveName = { String c -> deleg
 apply plugin: 'net.minecraftforge.gradle.forge'
 apply plugin: 'java'
 
-version = '1.2.0'
+version = '1.2.1'
 group = 'com.hwbench'
 
 sourceCompatibility = '1.8'
@@ -81,7 +81,7 @@ minecraft {
 }
 
 dependencies {
-    compile 'com.hwbench:HardwareBenchmark-common:1.2.0'
+    compile 'com.hwbench:HardwareBenchmark-common:1.2.1'
     compile 'com.github.oshi:oshi-core:6.6.5'
     compile 'net.java.dev.jna:jna:5.15.0'
     compile 'net.java.dev.jna:jna-platform:5.15.0'
@@ -89,7 +89,7 @@ dependencies {
     compile 'org.slf4j:slf4j-api:2.0.16'
     // Gradle 8: the 'compile' configuration is not on compileClasspath by default.
     // Add the same deps to 'implementation' so they appear on the compile classpath.
-    implementation 'com.hwbench:HardwareBenchmark-common:1.2.0'
+    implementation 'com.hwbench:HardwareBenchmark-common:1.2.1'
     implementation 'com.github.oshi:oshi-core:6.6.5'
     implementation 'net.java.dev.jna:jna:5.15.0'
     implementation 'net.java.dev.jna:jna-platform:5.15.0'
@@ -368,9 +368,9 @@ jar {
         attributes([
             "Specification-Title"     : "HardwareBenchmark",
             "Specification-Vendor"    : "HWBench",
-            "Specification-Version"   : "1.2.0",
+            "Specification-Version"   : "1.2.1",
             "Implementation-Title"    : project.name,
-            "Implementation-Version"  : "1.2.0",
+            "Implementation-Version"  : "1.2.1",
             "Implementation-Vendor"   : "HWBench"
         ])
     }

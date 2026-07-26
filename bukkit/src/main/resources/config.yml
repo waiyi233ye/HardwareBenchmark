@@ -15,10 +15,10 @@ benchmark:
 
   # 内存跑分
   memory:
-    # 测试数组大小 (MB)
-    array-size-mb: 256
+    # 测试数组大小 (MB) — 建议不超过堆最大值的 1/4
+    array-size-mb: 64
     # 读写循环次数
-    iterations: 10
+    iterations: 3
 
   # 磁盘跑分
   disk:

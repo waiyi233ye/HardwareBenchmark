@@ -11,8 +11,8 @@ assignees: ''
 - **MC 版本**：[例如 1.20.1]
 - **平台**[例如 Bukkit/Spigot/Paper/Fabric/Forge]
 - **Java 版本**：[例如 Java 17]
-- **插件版本**：[例如 1.2.0]
-- **JAR 文件名**：[例如 HardwareBenchmark-1.2.0-bukkit-java17.jar]
+- **插件版本**：[例如 1.2.1]
+- **JAR 文件名**：[例如 HardwareBenchmark-1.2.1-bukkit-java17.jar]
 - **服务器操作系统**：[例如 Ubuntu 22.04]
 
 ## 问题描述

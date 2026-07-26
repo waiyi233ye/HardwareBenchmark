@@ -97,18 +97,22 @@ public class BenchCommand implements CommandExecutor, TabCompleter {
 
     private void handleDetect(CommandSender sender) {
         sender.sendMessage(ChatColor.YELLOW + "[HWBench] 正在检测硬件信息...");
+        plugin.getLogger().info("[HWBench-Detect] 正在检测硬件信息...");
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (hardwareDetector == null) {
                 sender.sendMessage(ChatColor.RED + "[HWBench] 硬件检测库未加载，无法检测硬件信息");
+                plugin.getLogger().warning("[HWBench-Detect] 硬件检测库未加载，无法检测硬件信息");
                 return;
             }
             BenchmarkResult result = new BenchmarkResult();
             hardwareDetector.detectAll(result);
             String report = hardwareDetector.generateReport(result);
-            sender.sendMessage(ChatColor.GREEN + "硬件检测完成！");
+            plugin.getLogger().info("[HWBench-Detect] 硬件检测完成，报告如下：");
             for (String line : report.split("\n")) {
+                plugin.getLogger().info("[HWBench-Detect] " + line);
                 sender.sendMessage(line);
             }
+            sender.sendMessage(ChatColor.GREEN + "硬件检测完成！");
         });
     }
 
@@ -145,28 +149,39 @@ public class BenchCommand implements CommandExecutor, TabCompleter {
                 // CPU跑分
                 if (type.equals("cpu") || type.equals("all")) {
                     sender.sendMessage(ChatColor.GRAY + "[HWBench] 正在运行CPU跑分（甜甜圈渲染+计算）...");
+                    plugin.getLogger().info("[HWBench-CPU] 正在运行CPU跑分...");
                     CPUBenchmark cpuBench = new CPUBenchmark(
                             config.getInt("benchmark.cpu.donut-frames", 300),
                             config.getInt("benchmark.cpu.compute-iterations", 5),
                             config.getInt("benchmark.cpu.matrix-size", 512),
                             config.getBoolean("benchmark.cpu.show-donut-animation", true)
                     );
-                    result.addTestResult("cpu", cpuBench.runAll());
+                    BenchmarkResult.TestResult cpuResult = cpuBench.runAll();
+                    plugin.getLogger().info(String.format(
+                            "[HWBench-CPU] CPU跑分完成: %.2f分, 耗时 %dms",
+                            cpuResult.getScore(), cpuResult.getDurationMs()));
+                    result.addTestResult("cpu", cpuResult);
                 }
 
                 // 内存跑分
                 if (type.equals("mem") || type.equals("all")) {
                     sender.sendMessage(ChatColor.GRAY + "[HWBench] 正在运行内存跑分...");
+                    plugin.getLogger().info("[HWBench-Mem] 正在运行内存跑分...");
                     MemoryBenchmark memBench = new MemoryBenchmark(
-                            config.getInt("benchmark.memory.array-size-mb", 256),
-                            config.getInt("benchmark.memory.iterations", 10)
+                            config.getInt("benchmark.memory.array-size-mb", 64),
+                            config.getInt("benchmark.memory.iterations", 3)
                     );
-                    result.addTestResult("memory", memBench.runAll());
+                    BenchmarkResult.TestResult memResult = memBench.runAll();
+                    plugin.getLogger().info(String.format(
+                            "[HWBench-Mem] 内存跑分完成: %.2f分, 耗时 %dms",
+                            memResult.getScore(), memResult.getDurationMs()));
+                    result.addTestResult("memory", memResult);
                 }
 
                 // 磁盘跑分
                 if (type.equals("disk") || type.equals("all")) {
                     sender.sendMessage(ChatColor.GRAY + "[HWBench] 正在运行磁盘跑分...");
+                    plugin.getLogger().info("[HWBench-Disk] 正在运行磁盘跑分...");
                     File testDir = new File(plugin.getDataFolder(), "bench-tmp");
                     DiskBenchmark diskBench = new DiskBenchmark(
                             config.getInt("benchmark.disk.file-size-mb", 512),
@@ -174,7 +189,11 @@ public class BenchCommand implements CommandExecutor, TabCompleter {
                             config.getInt("benchmark.disk.random-io-count", 5000),
                             testDir
                     );
-                    result.addTestResult("disk", diskBench.runAll());
+                    BenchmarkResult.TestResult diskResult = diskBench.runAll();
+                    plugin.getLogger().info(String.format(
+                            "[HWBench-Disk] 磁盘跑分完成: %.2f分, 耗时 %dms",
+                            diskResult.getScore(), diskResult.getDurationMs()));
+                    result.addTestResult("disk", diskResult);
                 }
 
                 // 生成报告
@@ -194,8 +213,9 @@ public class BenchCommand implements CommandExecutor, TabCompleter {
                             tr.getName(), tr.getScore(), tr.getDurationMs()));
                 }
 
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 sender.sendMessage(ChatColor.RED + "[HWBench] 跑分失败: " + e.getMessage());
+                plugin.getLogger().severe("[HWBench] 跑分失败: " + e);
                 e.printStackTrace();
             } finally {
                 if (serverController.isAutoUnlock()) {

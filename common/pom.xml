@@ -44,6 +44,10 @@
                 <configuration>
                     <release>${java.release}</release>
                     <encoding>UTF-8</encoding>
+                    <!-- StandaloneDemo 是独立运行演示（main()），不应进生产 JAR -->
+                    <excludes>
+                        <exclude>**/StandaloneDemo.java</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
             <plugin>

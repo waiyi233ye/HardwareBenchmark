@@ -35,9 +35,8 @@ site-shots/
 screenshot.py
 patch_class.py
 
-# 服务器 JAR 和库文件（不需要版本控制）
+# 服务器 JAR 和库文件（不需要版本控制；dist/ 单独忽略见下）
 *.jar
-!dist/*.jar
 
 # Maven 设置（含凭据）
 settings.xml
@@ -81,6 +80,14 @@ patch_jar_version.py
 patch_jars_to_1.2.1.py
 retest_forge_1.18plus.py
 strip_forge_1.18plus_deps.py
+
+# 仓库根目录散落的开发工具与测试配置（不入库）
+ReobfJar.java
+merge_forge1122.py
+strip_forge118plus.py
+update_jar_descriptions.py
+update_jar_plugin.py
+test-lightweight-config.yml
 
 # Release Notes 文档（内容放在 GitHub Release body 里，不入库）
 release-notes-*.md

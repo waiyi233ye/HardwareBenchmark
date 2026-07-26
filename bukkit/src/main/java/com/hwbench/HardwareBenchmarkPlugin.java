@@ -77,8 +77,10 @@ public class HardwareBenchmarkPlugin extends JavaPlugin {
         getCommand("hwbench").setTabCompleter(command);
 
         getLogger().info("HardwareBenchmark 插件已启用！");
-        getLogger().info("MC版本: " + getServer().getVersion());
-        getLogger().info("Java版本: " + System.getProperty("java.version"));
+        getLogger().info("MC版本: " + getServer().getVersion()
+                + " (解析: " + com.hwbench.bukkit.VersionCompat.getMinecraftVersion() + ")");
+        getLogger().info("Java版本: " + System.getProperty("java.version")
+                + " (MRJAR: " + com.hwbench.bukkit.MrjarProbe.level() + ")");
         getLogger().info("使用 /hwbench 查看帮助");
 
         // 在服务器启动时异步检查Linux库

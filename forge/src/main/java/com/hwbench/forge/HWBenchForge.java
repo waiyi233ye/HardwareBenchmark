@@ -6,11 +6,9 @@ import com.hwbench.core.DiskBenchmark;
 import com.hwbench.core.HardwareDetector;
 import com.hwbench.core.LibraryManager;
 import com.hwbench.core.MemoryBenchmark;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,16 +46,13 @@ public class HWBenchForge {
     private final String lockMessage = "§c服务器正在执行硬件跑分，暂时关闭，请稍后再来。";
 
     public HWBenchForge() {
-        MinecraftForge.EVENT_BUS.register(this);
         LOGGER.info("[HardwareBenchmark] Forge mod 加载，等待服务器启动。");
     }
 
-    @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
         LOGGER.info("[HardwareBenchmark] 服务器启动，注册 /hwbench 命令");
     }
 
-    @SubscribeEvent
     public void onRegisterCommands(RegisterCommandsEvent event) {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
         dispatcher.register(Commands.literal("hwbench")
@@ -76,7 +71,6 @@ public class HWBenchForge {
     }
 
     /** 玩家登录时检查锁定状态 */
-    @SubscribeEvent
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (serverLocked.get() && event.getEntity() instanceof ServerPlayer) {
             ServerPlayer player = (ServerPlayer) event.getEntity();

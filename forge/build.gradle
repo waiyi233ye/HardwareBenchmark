@@ -12,7 +12,7 @@ buildscript {
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'java'
 
-version = '1.2.1'
+version = '2.0.0'
 group = 'com.hwbench'
 
 // 参数化 MC 版本（默认 1.20.1）
@@ -78,7 +78,7 @@ dependencies {
     minecraft "net.minecraftforge:forge:${mcVersion}-${forgeVersion}"
 
     // HardwareBenchmark-common 始终 shade（模组自有核心库）
-    implementation 'com.hwbench:HardwareBenchmark-common:1.2.1'
+    implementation 'com.hwbench:HardwareBenchmark-common:2.0.0'
 
     if (shouldShadeDeps) {
         // 所有版本：shade 第三方库以确保版本一致性
@@ -139,9 +139,9 @@ jar {
         attributes([
             "Specification-Title"     : "HardwareBenchmark",
             "Specification-Vendor"    : "HWBench",
-            "Specification-Version"   : "1.2.1",
+            "Specification-Version"   : "2.0.0",
             "Implementation-Title"    : project.name,
-            "Implementation-Version"  : "1.2.1",
+            "Implementation-Version"  : "2.0.0",
             "Implementation-Vendor"   : "HWBench"
         ])
     }

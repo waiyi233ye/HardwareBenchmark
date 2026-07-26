@@ -316,22 +316,33 @@ public class HWBenchFabric implements ModInitializer {
     }
 
     /**
-     * 跨版本创建文本组件：1.19+ Text.literal / 1.16-1.18 new LiteralText
+     * 跨版本创建文本组件：1.19+ Text.literal / 1.14-1.18.2 new LiteralText
      *
-     * Fabric 运行时使用 intermediary 映射，类名被重映射（如 Text → class_2568）。
-     * Class.forName("net.minecraft.text.Text") 使用硬编码字符串不会被 Loom 重映射，
-     * 因此在运行时找不到类。改用已导入的 Text.class（Loom 会重映射直接引用），
-     * 并通过 intermediary 类名 class_2585 查找 LiteralText。
+     * Fabric 运行时使用 intermediary 映射，类名/方法名被重映射：
+     *   - Text       → class_2568
+     *   - LiteralText → class_2585
+     *   - Text.literal(String) → class_2568.method_30107(String)
+     *
+     * Loom 只重映射源码中的直接引用（如 Text.class），不重映射字符串常量。
+     * 因此反射时必须使用 intermediary 名（method_30107 / class_2585），
+     * 这些名在所有 Fabric 版本（1.14–1.21.3）中保持稳定。
+     *
+     * 尝试顺序：
+     *   1. method_30107（1.19+ 生产环境 intermediary 名）
+     *   2. literal（1.19+ 开发环境 yarn 名）
+     *   3. new class_2585(String)（1.14–1.18.2 LiteralText 构造器）
      */
     private Object makeText(String message) {
-        // 使用已导入的 Text.class（Loom 在构建时重映射为 intermediary 类）
+        // 使用已导入的 Text.class（Loom 在构建时重映射为 intermediary 类 class_2568）
         Class<?> textClass = net.minecraft.text.Text.class;
-        // 1.19+: Text.literal(String)
-        try {
-            java.lang.reflect.Method m = textClass.getMethod("literal", String.class);
-            return m.invoke(null, message);
-        } catch (Exception e) { /* fall through */ }
-        // 1.16-1.18: new LiteralText(String) — intermediary 类名 class_2585（跨版本稳定）
+        // 1.19+: Text.literal(String) — 同时尝试 intermediary 名和 yarn 名
+        for (String methodName : new String[]{"method_30107", "literal"}) {
+            try {
+                java.lang.reflect.Method m = textClass.getMethod(methodName, String.class);
+                return m.invoke(null, message);
+            } catch (Exception e) { /* try next */ }
+        }
+        // 1.14-1.18.2: new LiteralText(String) — intermediary 类名 class_2585（跨版本稳定）
         try {
             Class<?> cls = Class.forName("net.minecraft.class_2585");
             return cls.getConstructor(String.class).newInstance(message);

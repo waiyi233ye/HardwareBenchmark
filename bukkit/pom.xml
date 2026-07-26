@@ -7,13 +7,13 @@
     <parent>
         <groupId>com.hwbench</groupId>
         <artifactId>HardwareBenchmark-parent</artifactId>
-        <version>1.2.1</version>
+        <version>2.0.0</version>
     </parent>
 
     <artifactId>HardwareBenchmark-bukkit</artifactId>
     <packaging>jar</packaging>
     <name>HardwareBenchmark Bukkit/Spigot</name>
-    <description>Bukkit/Spigot/Paper 端：硬件检测与跑分插件</description>
+    <description>Bukkit/Spigot/Paper 端：硬件检测与跑分插件（Multi-Release JAR，兼容 1.7.10~1.21.3 / Java 8~21）</description>
 
     <dependencies>
         <dependency>
@@ -30,7 +30,8 @@
     </dependencies>
 
     <build>
-        <finalName>HardwareBenchmark-${project.version}-bukkit-${mc.label}</finalName>
+        <!-- 单一通用 JAR：覆盖 Bukkit/Spigot/Paper 1.7.10~1.21.3，Java 8/11/17/21 -->
+        <finalName>HardwareBenchmark-${project.version}-bukkit-universal</finalName>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
@@ -42,12 +43,52 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <release>${java.release}</release>
                     <encoding>UTF-8</encoding>
                     <excludes>
                         <exclude>**/StandaloneDemo.java</exclude>
                     </excludes>
                 </configuration>
+                <executions>
+                    <!-- 基础编译：Java 8 字节码，输出到 JAR 根目录（所有 JVM 可加载） -->
+                    <execution>
+                        <id>default-compile</id>
+                        <configuration>
+                            <release>8</release>
+                            <encoding>UTF-8</encoding>
+                            <excludes>
+                                <exclude>**/StandaloneDemo.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                    <!-- Java 17 覆盖层：输出到 META-INF/versions/17/（Java 17+ JVM 加载） -->
+                    <execution>
+                        <id>compile-java17-overlay</id>
+                        <phase>compile</phase>
+                        <goals><goal>compile</goal></goals>
+                        <configuration>
+                            <release>17</release>
+                            <encoding>UTF-8</encoding>
+                            <compileSourceRoots>
+                                <compileSourceRoot>${project.basedir}/src/main/java17</compileSourceRoot>
+                            </compileSourceRoots>
+                            <multiReleaseOutput>true</multiReleaseOutput>
+                        </configuration>
+                    </execution>
+                    <!-- Java 21 覆盖层：输出到 META-INF/versions/21/（Java 21+ JVM 加载） -->
+                    <execution>
+                        <id>compile-java21-overlay</id>
+                        <phase>compile</phase>
+                        <goals><goal>compile</goal></goals>
+                        <configuration>
+                            <release>21</release>
+                            <encoding>UTF-8</encoding>
+                            <compileSourceRoots>
+                                <compileSourceRoot>${project.basedir}/src/main/java21</compileSourceRoot>
+                            </compileSourceRoots>
+                            <multiReleaseOutput>true</multiReleaseOutput>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -94,6 +135,9 @@
                                     </excludes>
                                 </filter>
                             </filters>
+                            <manifestEntries>
+                                <Multi-Release>true</Multi-Release>
+                            </manifestEntries>
                         </configuration>
                     </execution>
                 </executions>
@@ -102,25 +146,23 @@
     </build>
 
     <profiles>
-        <!-- 1.7.10 特殊配置：排除 1.8+ 才有的 AsyncPreLoginListener -->
+        <!--
+            通用 JAR 说明：
+            - 统一使用 mc-1.20.1（默认）编译，base 强制 release 8，覆盖层 17/21 由上方 executions 固定。
+            - AsyncPreLoginListener 不再通过 profile 排除；其加载由 HardwareBenchmarkPlugin
+              中的 Class.forName 运行时反射守卫（先检测 AsyncPlayerPreLoginEvent 是否存在），
+              因此在 1.7.10 上该类存在于 JAR 中但永不被加载。
+            - 旧 mc-1.7.10 profile 保留用于选择 spigot-api 1.7.10 依赖，但不再排除任何源文件。
+        -->
         <profile>
             <id>mc-1.7.10</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-compiler-plugin</artifactId>
-                        <configuration>
-                            <release>8</release>
-                            <encoding>UTF-8</encoding>
-                            <excludes>
-                                <exclude>**/StandaloneDemo.java</exclude>
-                                <exclude>**/AsyncPreLoginListener.java</exclude>
-                            </excludes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
+            <properties>
+                <mc.label>1.7.10</mc.label>
+                <mc.short>1.7</mc.short>
+                <spigot.version>1.7.10-R0.1-SNAPSHOT</spigot.version>
+                <mc.api.version.line></mc.api.version.line>
+                <java.release>8</java.release>
+            </properties>
         </profile>
     </profiles>
 </project>

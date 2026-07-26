@@ -69,4 +69,18 @@ RELEASE_NOTES.md
 
 # 沙箱发布辅助脚本（含本地路径，不应入库）
 publish_to_github.sh
+publish_v*.sh
 shade_forge_jars.sh
+
+# v2.0.0 开发工具与部署脚本（不入库）
+__pycache__/
+deploy_jars.py
+deploy_universal_jars.py
+fix_fabric_inner_jar.py
+patch_jar_version.py
+patch_jars_to_1.2.1.py
+retest_forge_1.18plus.py
+strip_forge_1.18plus_deps.py
+
+# Release Notes 文档（内容放在 GitHub Release body 里，不入库）
+release-notes-*.md

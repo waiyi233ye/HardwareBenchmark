@@ -30,7 +30,7 @@ v2.0.0 起采用**通用 JAR（Universal JAR）**架构，三大平台各仅发�
 | 平台 | MC 版本范围 | 覆盖版本数 | Java 版本 | 推荐下载的 JAR |
 |------|------------|-----------|----------|---------------|
 | Bukkit/Spigot/Paper | 1.7.10 ~ 1.21.3（全版本） | 59 | Java 8 / Java 17（按 MC 版本自动选择） | `HardwareBenchmark-2.0.0-bukkit-universal.jar` |
-| Fabric | 1.14 ~ 1.21.3（全 Fabric 支持版本） | 全部 | Java 8 / Java 17（按 MC 版本自动选择） | `HardwareBenchmark-2.0.0-fabric-universal.jar` |
+| Fabric | 1.14 ~ 1.21.3（全 Fabric 支持版本） | 全部版本 | Java 8 / Java 17（按 MC 版本自动选择） | `HardwareBenchmark-2.0.0-fabric-universal.jar` |
 | Forge | 1.7.10 ~ 1.21.3（含 NeoForge 1.20.2+） | 59 | Java 8 / Java 17（按 MC 版本自动选择） | `HardwareBenchmark-2.0.0-forge-universal.jar` |
 
 > 💡 **通用 JAR 实现机制**：

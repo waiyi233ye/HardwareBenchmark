@@ -96,17 +96,15 @@
 
 | 文件 | 说明 |
 |------|------|
-| `/workspace/test-results/SUMMARY.log` | 16 服务器汇总表 |
-| `/workspace/test-results/<server>.log` | 各服务器测试结果（含 RCON 响应、命令触发情况） |
-| `/workspace/test-results/<server>.console.log` | 各服务器 stdout 原始输出（Forge HWBench 输出在此） |
-| `/workspace/dist/HardwareBenchmark-2.0.0-{bukkit,fabric,forge}-universal.jar` | 3 个发布 JAR |
-| `/workspace/dist/HardwareBenchmark-1.2.1-*-prev.jar` | 7 个上代 JAR（-prev 后缀，供回滚） |
-| `/workspace/forge-container/` | Forge 容器 JAR 模块源码（含 `ForgeContainerBase`、`ForgeEntryClassic` 等） |
-| `/workspace/build_forge_container.sh` | Forge 容器 JAR 构建脚本（Java 8 编译，手动 `javac`/`jar`） |
-| `/workspace/strip_forge_1.18plus_deps.py` | Forge 1.18+ 依赖剥离脚本（移除 OSHI/JNA 避免 JPMS 分包冲突） |
-| `/workspace/proc-stub/HardwareDetector.java` | /proc 硬件检测实现（Forge 1.18+ 使用，不依赖 OSHI/JNA） |
-| `/workspace/test_runner.py` | 16 服务器自动化测试脚本 |
-| `/workspace/deploy_universal_jars.py` | Universal JAR 部署脚本 |
+| `test-results/SUMMARY.log` | 16 服务器汇总表 |
+| `test-results/<server>.log` | 各服务器测试结果（含 RCON 响应、命令触发情况） |
+| `test-results/<server>.console.log` | 各服务器 stdout 原始输出（Forge HWBench 输出在此） |
+| GitHub Release v2.0.0 资产 | 3 个发布 JAR（bukkit/fabric/forge-universal）+ 7 个 v1.2.1 `-prev` JAR |
+| `forge-container/` | Forge 容器 JAR 模块源码（含 `ForgeContainerBase`、`ForgeEntryClassic` 等） |
+| `build_forge_container.sh` | Forge 容器 JAR 构建脚本（Java 8 编译，手动 `javac`/`jar`） |
+| `proc-stub/HardwareDetector.java` | /proc 硬件检测实现（Forge 1.18+ 使用，不依赖 OSHI/JNA） |
+
+> 注：`test-results/` 目录在 `.gitignore` 中被忽略，证据文件仅在测试环境中生成，不入库。`test_runner.py`、`deploy_universal_jars.py`、`strip_forge_1.18plus_deps.py` 等脚本不入库（见 `.gitignore`）。
 
 ## 6. 结论
 

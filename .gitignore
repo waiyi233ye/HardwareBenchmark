@@ -25,10 +25,8 @@ target/
 .DS_Store
 Thumbs.db
 
-# Trae 配置（仅保留 rules/ 目录入库，其余忽略）
-.trae/*
-!.trae/rules/
-!.trae/rules/**
+# Trae IDE 工作产物（不入库）
+.trae/
 
 # 截图和临时脚本
 site-shots/

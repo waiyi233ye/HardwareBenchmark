@@ -15,20 +15,44 @@ public class DiskBenchmark {
     private final int blockSizeKB;
     private final int randomIOCount;
     private final File testFile;
+    private final int timeoutSeconds;
 
-    public DiskBenchmark(int fileSizeMB, int blockSizeKB, int randomIOCount, File testDir) {
+    /**
+     * 完整构造：所有跑分参数从外部传入（通常由 BenchConfig 提供）。
+     *
+     * @param fileSizeMB     测试文件大小（MB）
+     * @param blockSizeKB    单块大小（KB）
+     * @param randomIOCount  随机 IO 次数
+     * @param testDir        测试目录
+     * @param timeoutSeconds 整体跑分超时阈值（秒）
+     */
+    public DiskBenchmark(int fileSizeMB, int blockSizeKB, int randomIOCount, File testDir, int timeoutSeconds) {
         this.fileSizeMB = fileSizeMB;
         this.blockSizeKB = blockSizeKB;
         this.randomIOCount = randomIOCount;
         this.testFile = new File(testDir, "hwbench_testfile.tmp");
+        this.timeoutSeconds = timeoutSeconds;
+    }
+
+    /**
+     * 向后兼容构造：保留旧的 4 参数签名，超时使用默认值。
+     */
+    public DiskBenchmark(int fileSizeMB, int blockSizeKB, int randomIOCount, File testDir) {
+        this(fileSizeMB, blockSizeKB, randomIOCount, testDir, 120);
     }
 
     /**
      * 运行完整磁盘跑分
+     *
+     * <p>超时机制：以 {@link #timeoutSeconds} 为整体预算，每个子阶段开始前检查已用时间，
+     * 超时则跳过后续阶段并在结果中标注「超时」。avgScore 按实际完成的阶段数计算，
+     * 避免未跑阶段把整体分数拉低到 0。</p>
      */
     public BenchmarkResult.TestResult runAll() {
         long totalStart = System.nanoTime();
+        long timeoutNanos = (long) timeoutSeconds * 1_000_000_000L;
         StringBuilder details = new StringBuilder();
+        boolean timedOut = false;
 
         int blockSize = blockSizeKB * 1024;
         long totalBytes = (long) fileSizeMB * 1024 * 1024;
@@ -38,32 +62,74 @@ public class DiskBenchmark {
             // 确保测试目录存在
             testFile.getParentFile().mkdirs();
 
+            double seqWriteThroughput = 0;
+            double seqReadThroughput = 0;
+            double[] randWriteResult = null;
+            double[] randReadResult = null;
+            int completedStages = 0;
+
             // 1. 顺序写入测试
-            double seqWriteThroughput = sequentialWrite(blockSize, blockCount);
-            details.append(String.format("  顺序写入: %.1f MB/s\n", seqWriteThroughput));
+            if (timeoutNanos > 0 && System.nanoTime() - totalStart > timeoutNanos) {
+                timedOut = true;
+            }
+            if (!timedOut) {
+                seqWriteThroughput = sequentialWrite(blockSize, blockCount);
+                details.append(String.format("  顺序写入: %.1f MB/s\n", seqWriteThroughput));
+                completedStages++;
+            }
 
             // 2. 顺序读取测试
-            double seqReadThroughput = sequentialRead(blockSize, blockCount);
-            details.append(String.format("  顺序读取: %.1f MB/s\n", seqReadThroughput));
+            if (!timedOut && System.nanoTime() - totalStart > timeoutNanos) {
+                timedOut = true;
+            }
+            if (!timedOut) {
+                seqReadThroughput = sequentialRead(blockSize, blockCount);
+                details.append(String.format("  顺序读取: %.1f MB/s\n", seqReadThroughput));
+                completedStages++;
+            }
 
             // 3. 随机写入测试
-            double[] randWriteResult = randomWrite(blockSize, blockCount);
-            details.append(String.format("  随机写入: %.1f MB/s, %.0f IOPS\n",
-                    randWriteResult[0], randWriteResult[1]));
+            if (!timedOut && System.nanoTime() - totalStart > timeoutNanos) {
+                timedOut = true;
+            }
+            if (!timedOut) {
+                randWriteResult = randomWrite(blockSize, blockCount);
+                details.append(String.format("  随机写入: %.1f MB/s, %.0f IOPS\n",
+                        randWriteResult[0], randWriteResult[1]));
+                completedStages++;
+            }
 
             // 4. 随机读取测试
-            double[] randReadResult = randomRead(blockSize, blockCount);
-            details.append(String.format("  随机读取: %.1f MB/s, %.0f IOPS\n",
-                    randReadResult[0], randReadResult[1]));
+            if (!timedOut && System.nanoTime() - totalStart > timeoutNanos) {
+                timedOut = true;
+            }
+            if (!timedOut) {
+                randReadResult = randomRead(blockSize, blockCount);
+                details.append(String.format("  随机读取: %.1f MB/s, %.0f IOPS\n",
+                        randReadResult[0], randReadResult[1]));
+                completedStages++;
+            }
 
             // 清理测试文件
             testFile.delete();
 
             long totalDuration = System.nanoTime() - totalStart;
-            double avgScore = (seqWriteThroughput + seqReadThroughput) / 2.0;
+            // 按实际完成阶段数计算均分，避免未跑阶段把分数拉到 0
+            double avgScore = 0;
+            if (completedStages > 0) {
+                double total = seqWriteThroughput + seqReadThroughput;
+                avgScore = total / Math.min(completedStages, 2);
+            }
 
+            if (timedOut) {
+                details.append("  ⚠ 已达超时阈值（")
+                       .append(timeoutSeconds)
+                       .append("秒），后续阶段被跳过\n");
+            }
+
+            String testName = timedOut ? "磁盘跑分（超时）" : "磁盘跑分";
             return new BenchmarkResult.TestResult(
-                    "磁盘跑分", avgScore / 100.0, "分", totalDuration / 1_000_000,
+                    testName, avgScore / 100.0, "分", totalDuration / 1_000_000,
                     details.toString().trim(), avgScore
             );
 

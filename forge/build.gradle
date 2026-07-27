@@ -12,7 +12,7 @@ buildscript {
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'java'
 
-version = '2.0.0'
+version = '2.1.0'
 group = 'com.hwbench'
 
 // 参数化 MC 版本（默认 1.20.1）
@@ -36,9 +36,9 @@ else if (mcVersion.startsWith('1.12') || mcVersion.startsWith('1.7')) javaVersio
 // 是否将第三方库（OSHI/JNA/Gson/SLF4J）shade 进 JAR。
 // Forge 1.18+ 使用 JPMS 模块系统，shade JNA/OSHI 会导致 split-package 冲突
 //（ModLauncher 拒绝加载：Modules hwbench and com.sun.jna.platform export package ...）。
-// 1.18+ 改用 /proc 文件系统检测硬件，不依赖 OSHI，因此不需要 shade。
-// 1.16.5 及更早不使用 JPMS，可以 shade 第三方库。
-def shouldShadeDeps = !(mcVersion ==~ /^1\.(18|19|20)\..*/)
+// 1.16.5 自带 JNA 4.4.0，与 mod 所需 JNA 5.15.0 版本冲突，改用 /proc 检测硬件。
+// 1.18+ 与 1.16.5 均改用 /proc 文件系统检测硬件，不依赖 OSHI，因此不需要 shade。
+def shouldShadeDeps = !(mcVersion ==~ /^1\.(16\.5|18|19|20)\..*/)
 
 
 
@@ -78,7 +78,7 @@ dependencies {
     minecraft "net.minecraftforge:forge:${mcVersion}-${forgeVersion}"
 
     // HardwareBenchmark-common 始终 shade（模组自有核心库）
-    implementation 'com.hwbench:HardwareBenchmark-common:2.0.0'
+    implementation 'com.hwbench:HardwareBenchmark-common:2.1.0'
 
     if (shouldShadeDeps) {
         // 所有版本：shade 第三方库以确保版本一致性
@@ -139,9 +139,9 @@ jar {
         attributes([
             "Specification-Title"     : "HardwareBenchmark",
             "Specification-Vendor"    : "HWBench",
-            "Specification-Version"   : "2.0.0",
+            "Specification-Version"   : "2.1.0",
             "Implementation-Title"    : project.name,
-            "Implementation-Version"  : "2.0.0",
+            "Implementation-Version"  : "2.1.0",
             "Implementation-Vendor"   : "HWBench"
         ])
     }

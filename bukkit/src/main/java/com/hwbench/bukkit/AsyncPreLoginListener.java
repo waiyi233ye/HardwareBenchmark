@@ -19,7 +19,7 @@ public class AsyncPreLoginListener implements Listener {
         this.serverController = serverController;
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPreLogin(AsyncPlayerPreLoginEvent event) {
         if (serverController.isLocked()) {
             event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, serverController.getLockMessage());

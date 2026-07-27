@@ -1,6 +1,7 @@
 package com.hwbench.bukkit;
 
 import com.hwbench.HardwareBenchmarkPlugin;
+import com.hwbench.core.BenchConfig;
 import com.hwbench.core.BenchmarkResult;
 import com.hwbench.core.CPUBenchmark;
 import com.hwbench.core.DiskBenchmark;
@@ -134,6 +135,8 @@ public class BenchCommand implements CommandExecutor, TabCompleter {
     }
 
     private void runBenchmarkAsync(CommandSender sender, String type) {
+        // 在线程外部加载 BenchConfig 单例，避免线程安全问题
+        BenchConfig benchConfig = BenchConfig.load(plugin.getServer().getWorldContainer());
         CompletableFuture.runAsync(() -> {
             try {
                 BenchmarkResult result = new BenchmarkResult();
@@ -151,10 +154,13 @@ public class BenchCommand implements CommandExecutor, TabCompleter {
                     sender.sendMessage(ChatColor.GRAY + "[HWBench] 正在运行CPU跑分（甜甜圈渲染+计算）...");
                     plugin.getLogger().info("[HWBench-CPU] 正在运行CPU跑分...");
                     CPUBenchmark cpuBench = new CPUBenchmark(
-                            config.getInt("benchmark.cpu.donut-frames", 300),
-                            config.getInt("benchmark.cpu.compute-iterations", 5),
-                            config.getInt("benchmark.cpu.matrix-size", 512),
-                            config.getBoolean("benchmark.cpu.show-donut-animation", true)
+                            benchConfig.cpuDonutFrames,
+                            benchConfig.cpuComputeIterations,
+                            benchConfig.cpuMatrixSize,
+                            benchConfig.cpuShowAnimation,
+                            benchConfig.cpuPrimeRange,
+                            benchConfig.cpuFloatIterations,
+                            benchConfig.cpuTimeoutSeconds
                     );
                     BenchmarkResult.TestResult cpuResult = cpuBench.runAll();
                     plugin.getLogger().info(String.format(
@@ -168,8 +174,10 @@ public class BenchCommand implements CommandExecutor, TabCompleter {
                     sender.sendMessage(ChatColor.GRAY + "[HWBench] 正在运行内存跑分...");
                     plugin.getLogger().info("[HWBench-Mem] 正在运行内存跑分...");
                     MemoryBenchmark memBench = new MemoryBenchmark(
-                            config.getInt("benchmark.memory.array-size-mb", 64),
-                            config.getInt("benchmark.memory.iterations", 3)
+                            benchConfig.memArraySizeMB,
+                            benchConfig.memIterations,
+                            benchConfig.memRandomAccessCount,
+                            benchConfig.memTimeoutSeconds
                     );
                     BenchmarkResult.TestResult memResult = memBench.runAll();
                     plugin.getLogger().info(String.format(
@@ -184,10 +192,11 @@ public class BenchCommand implements CommandExecutor, TabCompleter {
                     plugin.getLogger().info("[HWBench-Disk] 正在运行磁盘跑分...");
                     File testDir = new File(plugin.getDataFolder(), "bench-tmp");
                     DiskBenchmark diskBench = new DiskBenchmark(
-                            config.getInt("benchmark.disk.file-size-mb", 512),
-                            config.getInt("benchmark.disk.block-size-kb", 64),
-                            config.getInt("benchmark.disk.random-io-count", 5000),
-                            testDir
+                            benchConfig.diskFileSizeMB,
+                            benchConfig.diskBlockSizeKB,
+                            benchConfig.diskRandomIOCount,
+                            testDir,
+                            benchConfig.diskTimeoutSeconds
                     );
                     BenchmarkResult.TestResult diskResult = diskBench.runAll();
                     plugin.getLogger().info(String.format(
@@ -203,6 +212,16 @@ public class BenchCommand implements CommandExecutor, TabCompleter {
                 File savedFile = resultReporter.saveReport(result, report);
                 if (savedFile != null) {
                     sender.sendMessage(ChatColor.GREEN + "[HWBench] 报告已保存到: " + savedFile.getAbsolutePath());
+                }
+
+                // 写入服务端 logs/hwbench/ 目录
+                if (benchConfig.reportWriteToServerLogs) {
+                    File logsDir = new File(plugin.getServer().getWorldContainer(), "logs");
+                    File logsFile = resultReporter.saveReportToServerLogs(result, report, logsDir);
+                    if (logsFile != null) {
+                        sender.sendMessage(ChatColor.GREEN + "[HWBench] 报告已写入服务端日志: " + logsFile.getPath());
+                        plugin.getLogger().info("[HWBench] 报告已写入 logs/hwbench/" + logsFile.getName());
+                    }
                 }
 
                 sender.sendMessage(ChatColor.GREEN + "[HWBench] 跑分完成！综合得分: " +

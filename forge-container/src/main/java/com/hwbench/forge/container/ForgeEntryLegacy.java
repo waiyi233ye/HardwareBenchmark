@@ -20,7 +20,7 @@ package com.hwbench.forge.container;
 @cpw.mods.fml.common.Mod(
         modid = "hwbench",
         name = "HardwareBenchmark",
-        version = "2.0.0",
+        version = "2.1.0",
         acceptableRemoteVersions = "*"
 )
 public class ForgeEntryLegacy extends ForgeContainerBase {

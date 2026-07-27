@@ -13,12 +13,17 @@ buildscript {
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'java'
 
-version = '2.0.0'
+version = '2.1.0'
 group = 'com.hwbench'
 
 def mcVersion = '1.16.5'
 def forgeVersion = '36.2.42'
 def javaVersion = '8'  // 1.16.5 Forge 通常在 Java 8 运行
+
+// 是否将第三方库（OSHI/JNA/Gson/SLF4J）shade 进 JAR。
+// 1.16.5 改用 /proc 文件系统检测硬件（避免 JNA 4.4.0/5.15.0 版本冲突），
+// 不再依赖 OSHI/JNA，因此不需要 shade。
+def shouldShadeDeps = false
 
 java {
     toolchain {
@@ -58,12 +63,22 @@ minecraft {
 dependencies {
     minecraft "net.minecraftforge:forge:${mcVersion}-${forgeVersion}"
 
-    implementation 'com.hwbench:HardwareBenchmark-common:2.0.0'
-    implementation 'com.github.oshi:oshi-core:6.6.5'
-    implementation 'net.java.dev.jna:jna:5.15.0'
-    implementation 'net.java.dev.jna:jna-platform:5.15.0'
-    implementation 'com.google.code.gson:gson:2.11.0'
-    implementation 'org.slf4j:slf4j-api:2.0.16'
+    // HardwareBenchmark-common 始终 shade（模组自有核心库）
+    implementation 'com.hwbench:HardwareBenchmark-common:2.1.0'
+
+    if (shouldShadeDeps) {
+        implementation 'com.github.oshi:oshi-core:6.6.5'
+        implementation 'net.java.dev.jna:jna:5.15.0'
+        implementation 'net.java.dev.jna:jna-platform:5.15.0'
+        implementation 'com.google.code.gson:gson:2.11.0'
+        implementation 'org.slf4j:slf4j-api:2.0.16'
+    } else {
+        compileOnly 'com.github.oshi:oshi-core:6.6.5'
+        compileOnly 'net.java.dev.jna:jna:5.15.0'
+        compileOnly 'net.java.dev.jna:jna-platform:5.15.0'
+        compileOnly 'com.google.code.gson:gson:2.11.0'
+        compileOnly 'org.slf4j:slf4j-api:2.0.16'
+    }
 }
 
 // 只对主源码的 compileJava 配置，不影响 ForgeGradle 内部 recompileMcp 任务
@@ -77,9 +92,9 @@ jar {
         attributes([
             "Specification-Title"     : "HardwareBenchmark",
             "Specification-Vendor"    : "HWBench",
-            "Specification-Version"   : "2.0.0",
+            "Specification-Version"   : "2.1.0",
             "Implementation-Title"    : project.name,
-            "Implementation-Version"  : "2.0.0",
+            "Implementation-Version"  : "2.1.0",
             "Implementation-Vendor"   : "HWBench"
         ])
     }
@@ -89,11 +104,12 @@ jar {
                 dep
             } else {
                 def name = dep.name
-                if (name.contains('HardwareBenchmark-common') ||
-                    name.contains('oshi-core') ||
-                    name.contains('jna') ||
-                    name.contains('gson') ||
-                    name.contains('slf4j-api')) {
+                // HardwareBenchmark-common 始终 shade（模组自有核心库）
+                if (name.contains('HardwareBenchmark-common')) {
+                    zipTree(dep)
+                } else if (shouldShadeDeps &&
+                    (name.contains('oshi-core') || name.contains('jna') ||
+                     name.contains('gson') || name.contains('slf4j-api'))) {
                     zipTree(dep)
                 } else {
                     null

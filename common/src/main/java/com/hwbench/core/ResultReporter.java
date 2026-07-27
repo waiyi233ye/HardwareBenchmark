@@ -4,7 +4,9 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.time.format.DateTimeFormatter;
+import java.util.Date;
 
 /**
  * 跑分结果报告生成器
@@ -116,6 +118,35 @@ public class ResultReporter {
             return reportFile;
         } catch (IOException e) {
             System.err.println("[HWBench] 保存报告失败: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 将报告写入服务端 logs/hwbench/ 目录下的独立文件。
+     * 所有平台（Bukkit/Forge/Fabric）统一调用此方法。
+     *
+     * @param result 跑分结果（用于生成文件名时间戳）
+     * @param reportContent 已格式化的报告文本（由 generateReport 生成）
+     * @param serverLogsDir 服务端 logs/ 目录（如 new File("logs") 或 new File(serverRoot, "logs")）
+     * @return 写入的文件对象，失败返回 null
+     */
+    public File saveReportToServerLogs(BenchmarkResult result, String reportContent, File serverLogsDir) {
+        try {
+            File hwbenchDir = new File(serverLogsDir, "hwbench");
+            if (!hwbenchDir.exists() && !hwbenchDir.mkdirs()) {
+                System.err.println("[HWBench] 无法创建目录: " + hwbenchDir.getAbsolutePath());
+                return null;
+            }
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+            String fileName = "hwbench_" + timestamp + ".txt";
+            File reportFile = new File(hwbenchDir, fileName);
+            try (PrintWriter writer = new PrintWriter(new FileWriter(reportFile, false))) {
+                writer.println(reportContent);
+            }
+            return reportFile;
+        } catch (Exception e) {
+            System.err.println("[HWBench] 保存到 logs/hwbench/ 失败: " + e.getMessage());
             return null;
         }
     }

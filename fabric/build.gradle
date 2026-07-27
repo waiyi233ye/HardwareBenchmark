@@ -12,7 +12,7 @@ buildscript {
 apply plugin: 'fabric-loom'
 apply plugin: 'java'
 
-version = '2.0.0'
+version = '2.1.0'
 group = 'com.hwbench'
 
 def mcVersion = project.findProperty('mc.version') ?: '1.20.1'
@@ -37,8 +37,8 @@ dependencies {
         modImplementation "net.fabricmc.fabric-api:fabric-command-api-v1:${fabricApiVersion}"
     }
 
-    implementation 'com.hwbench:HardwareBenchmark-common:2.0.0'
-    include 'com.hwbench:HardwareBenchmark-common:2.0.0'
+    implementation 'com.hwbench:HardwareBenchmark-common:2.1.0'
+    include 'com.hwbench:HardwareBenchmark-common:2.1.0'
 
     implementation 'com.github.oshi:oshi-core:6.6.5'
     include 'com.github.oshi:oshi-core:6.6.5'

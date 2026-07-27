@@ -1,11 +1,13 @@
 package com.hwbench.forge;
 
+import com.hwbench.core.BenchConfig;
 import com.hwbench.core.BenchmarkResult;
 import com.hwbench.core.CPUBenchmark;
 import com.hwbench.core.DiskBenchmark;
 import com.hwbench.core.HardwareDetector;
 import com.hwbench.core.LibraryManager;
 import com.hwbench.core.MemoryBenchmark;
+import com.hwbench.core.ResultReporter;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommand;
@@ -42,7 +44,7 @@ import java.util.ArrayList;
  *  - 文本: TextComponentString
  *  - 玩家: EntityPlayerMP
  */
-@Mod(modid = HWBenchForge1122.MODID, name = "HardwareBenchmark", version = "2.0.0", acceptableRemoteVersions = "*")
+@Mod(modid = HWBenchForge1122.MODID, name = "HardwareBenchmark", version = "2.1.0", acceptableRemoteVersions = "*")
 public class HWBenchForge1122 {
     public static final String MODID = "hwbench";
     private static final Logger LOGGER = LogManager.getLogger("HWBench");
@@ -61,7 +63,12 @@ public class HWBenchForge1122 {
         // 导致 "Expected: 7.0.2, Found: 5.1.0" 版本冲突。
         // detect 命令通过隔离 ClassLoader（parent-last）加载 JNA 5.15.0，避免此问题。
         MinecraftForge.EVENT_BUS.register(this);
-        event.registerServerCommand(new HWBenchCommand(this));
+        // 命令注册用 try-catch 包裹，失败时仅记录日志，不阻断服务器启动
+        try {
+            event.registerServerCommand(new HWBenchCommand(this));
+        } catch (Throwable t) {
+            LOGGER.error("[HardwareBenchmark] 命令注册失败: " + t.getMessage(), t);
+        }
     }
 
     /**
@@ -91,8 +98,10 @@ public class HWBenchForge1122 {
             @SuppressWarnings("unchecked")
             Set<String> invalid = (Set<String>) f.get(lcl);
             int count = invalid.size();
-            invalid.clear();
-            LOGGER.info("[HardwareBenchmark] 已清除 " + count + " 个 invalidClasses 缓存条目");
+            // 仅清除 HWBench 相关条目，不污染其他模组的 invalid 缓存
+            invalid.removeIf(s -> s.startsWith("com.hwbench.") || s.startsWith("oshi.") || s.startsWith("com.sun.jna.") || s.startsWith("org.slf4j."));
+            int removed = count - invalid.size();
+            LOGGER.info("[HardwareBenchmark] 已清除 " + removed + " 个 HWBench 相关的 invalidClasses 缓存条目（保留 " + invalid.size() + " 个其他模组条目）");
         } catch (Throwable t) {
             LOGGER.warn("[HardwareBenchmark] 清除 invalidClasses 失败: " + t.getMessage());
         }
@@ -500,13 +509,37 @@ public class HWBenchForge1122 {
 
         private void runCpu(ICommandSender sender) {
             send(sender, "§e开始 CPU 跑分，服务器可能卡顿...");
+            // 在跑分线程外部（主线程）加载配置，传入线程内部使用
+            final BenchConfig config = BenchConfig.load(new File("."));
             startBenchThread("HWBench-CPU", () -> {
                 try {
-                    CPUBenchmark bench = new CPUBenchmark(100, 3, 512, false);
+                    CPUBenchmark bench = new CPUBenchmark(
+                            config.cpuDonutFrames, config.cpuComputeIterations,
+                            config.cpuMatrixSize, config.cpuShowAnimation,
+                            config.cpuPrimeRange, config.cpuFloatIterations,
+                            config.cpuTimeoutSeconds);
                     BenchmarkResult.TestResult r = bench.runAll();
                     send(sender, String.format("§aCPU跑分完成: 得分 %.2f, 耗时 %dms", r.getScore(), r.getDurationMs()));
                     for (String line : r.getDetails().split("\n")) {
                         send(sender, line);
+                    }
+                    // 写入服务端 logs/ 目录
+                    if (config.reportWriteToServerLogs) {
+                        BenchmarkResult result = new BenchmarkResult();
+                        result.addTestResult("CPU", r);
+                        String hardwareInfo;
+                        try {
+                            hardwareInfo = detectViaProc();
+                        } catch (Exception e) {
+                            hardwareInfo = "";
+                        }
+                        ResultReporter reporter = new ResultReporter(
+                                config.reportSaveToFile, config.reportOutputDir, config.reportVerboseConsole);
+                        String report = reporter.generateReport(result, hardwareInfo);
+                        File logsFile = reporter.saveReportToServerLogs(result, report, new File("logs"));
+                        if (logsFile != null) {
+                            send(sender, "§a报告已写入服务端日志: " + logsFile.getPath());
+                        }
                     }
                 } catch (Throwable e) {
                     send(sender, "§cCPU跑分失败: " + e.getMessage());
@@ -516,12 +549,33 @@ public class HWBenchForge1122 {
 
         private void runMem(ICommandSender sender) {
             send(sender, "§e开始内存跑分...");
+            // 在跑分线程外部（主线程）加载配置，传入线程内部使用
+            final BenchConfig config = BenchConfig.load(new File("."));
             startBenchThread("HWBench-Mem", () -> {
                 try {
-                    // 降低数组大小避免 OOM（服务器堆仅 768m/1024m）
-                    MemoryBenchmark bench = new MemoryBenchmark(64, 3);
+                    MemoryBenchmark bench = new MemoryBenchmark(
+                            config.memArraySizeMB, config.memIterations, config.memRandomAccessCount,
+                            config.memTimeoutSeconds);
                     BenchmarkResult.TestResult r = bench.runAll();
                     send(sender, String.format("§a内存跑分完成: 得分 %.2f, 耗时 %dms", r.getScore(), r.getDurationMs()));
+                    // 写入服务端 logs/ 目录
+                    if (config.reportWriteToServerLogs) {
+                        BenchmarkResult result = new BenchmarkResult();
+                        result.addTestResult("Memory", r);
+                        String hardwareInfo;
+                        try {
+                            hardwareInfo = detectViaProc();
+                        } catch (Exception e) {
+                            hardwareInfo = "";
+                        }
+                        ResultReporter reporter = new ResultReporter(
+                                config.reportSaveToFile, config.reportOutputDir, config.reportVerboseConsole);
+                        String report = reporter.generateReport(result, hardwareInfo);
+                        File logsFile = reporter.saveReportToServerLogs(result, report, new File("logs"));
+                        if (logsFile != null) {
+                            send(sender, "§a报告已写入服务端日志: " + logsFile.getPath());
+                        }
+                    }
                 } catch (Throwable e) {
                     send(sender, "§c内存跑分失败: " + e.getMessage());
                 }
@@ -530,11 +584,34 @@ public class HWBenchForge1122 {
 
         private void runDisk(ICommandSender sender) {
             send(sender, "§e开始磁盘跑分...");
+            // 在跑分线程外部（主线程）加载配置，传入线程内部使用
+            final BenchConfig config = BenchConfig.load(new File("."));
             startBenchThread("HWBench-Disk", () -> {
                 try {
-                    DiskBenchmark bench = new DiskBenchmark(64, 4, 5, new File("."));
+                    DiskBenchmark bench = new DiskBenchmark(
+                            config.diskFileSizeMB, config.diskBlockSizeKB,
+                            config.diskRandomIOCount, new File("."),
+                            config.diskTimeoutSeconds);
                     BenchmarkResult.TestResult r = bench.runAll();
                     send(sender, String.format("§a磁盘跑分完成: 得分 %.2f, 耗时 %dms", r.getScore(), r.getDurationMs()));
+                    // 写入服务端 logs/ 目录
+                    if (config.reportWriteToServerLogs) {
+                        BenchmarkResult result = new BenchmarkResult();
+                        result.addTestResult("Disk", r);
+                        String hardwareInfo;
+                        try {
+                            hardwareInfo = detectViaProc();
+                        } catch (Exception e) {
+                            hardwareInfo = "";
+                        }
+                        ResultReporter reporter = new ResultReporter(
+                                config.reportSaveToFile, config.reportOutputDir, config.reportVerboseConsole);
+                        String report = reporter.generateReport(result, hardwareInfo);
+                        File logsFile = reporter.saveReportToServerLogs(result, report, new File("logs"));
+                        if (logsFile != null) {
+                            send(sender, "§a报告已写入服务端日志: " + logsFile.getPath());
+                        }
+                    }
                 } catch (Throwable e) {
                     send(sender, "§c磁盘跑分失败: " + e.getMessage());
                 }
@@ -544,15 +621,73 @@ public class HWBenchForge1122 {
         private void runAll(ICommandSender sender) {
             send(sender, "§e=== 运行全部跑分 ===");
             send(sender, "§c注意：跑分期间服务器会卡顿，建议先 /hwbench lock");
+            // 在跑分线程外部（主线程）加载配置，传入线程内部使用
+            final BenchConfig config = BenchConfig.load(new File("."));
             startBenchThread("HWBench-All", () -> {
                 try {
-                    runDetect(sender);
-                    Thread.sleep(500);
-                    runCpu(sender);
-                    Thread.sleep(500);
-                    runMem(sender);
-                    Thread.sleep(500);
-                    runDisk(sender);
+                    // 硬件检测（在单一线程内顺序执行，结果用于报告）
+                    String hardwareInfo;
+                    try {
+                        hardwareInfo = detectViaProc();
+                        for (String line : hardwareInfo.split("\n")) {
+                            send(sender, line);
+                        }
+                    } catch (Exception e) {
+                        hardwareInfo = "";
+                        send(sender, "§c硬件检测失败: " + e.getMessage());
+                    }
+                    // 在单一线程内顺序跑 CPU+Mem+Disk，结果汇入同一个 BenchmarkResult
+                    BenchmarkResult result = new BenchmarkResult();
+
+                    try {
+                        CPUBenchmark cpuBench = new CPUBenchmark(
+                                config.cpuDonutFrames, config.cpuComputeIterations,
+                                config.cpuMatrixSize, config.cpuShowAnimation,
+                                config.cpuPrimeRange, config.cpuFloatIterations,
+                                config.cpuTimeoutSeconds);
+                        BenchmarkResult.TestResult cpuR = cpuBench.runAll();
+                        result.addTestResult("CPU", cpuR);
+                        send(sender, String.format("§aCPU跑分完成: 得分 %.2f, 耗时 %dms",
+                                cpuR.getScore(), cpuR.getDurationMs()));
+                    } catch (Throwable e) {
+                        send(sender, "§cCPU跑分失败: " + e.getMessage());
+                    }
+
+                    try {
+                        MemoryBenchmark memBench = new MemoryBenchmark(
+                                config.memArraySizeMB, config.memIterations, config.memRandomAccessCount,
+                                config.memTimeoutSeconds);
+                        BenchmarkResult.TestResult memR = memBench.runAll();
+                        result.addTestResult("Memory", memR);
+                        send(sender, String.format("§a内存跑分完成: 得分 %.2f, 耗时 %dms",
+                                memR.getScore(), memR.getDurationMs()));
+                    } catch (Throwable e) {
+                        send(sender, "§c内存跑分失败: " + e.getMessage());
+                    }
+
+                    try {
+                        DiskBenchmark diskBench = new DiskBenchmark(
+                                config.diskFileSizeMB, config.diskBlockSizeKB,
+                                config.diskRandomIOCount, new File("."),
+                                config.diskTimeoutSeconds);
+                        BenchmarkResult.TestResult diskR = diskBench.runAll();
+                        result.addTestResult("Disk", diskR);
+                        send(sender, String.format("§a磁盘跑分完成: 得分 %.2f, 耗时 %dms",
+                                diskR.getScore(), diskR.getDurationMs()));
+                    } catch (Throwable e) {
+                        send(sender, "§c磁盘跑分失败: " + e.getMessage());
+                    }
+
+                    // 写一份综合报告到 logs/
+                    if (config.reportWriteToServerLogs) {
+                        ResultReporter reporter = new ResultReporter(
+                                config.reportSaveToFile, config.reportOutputDir, config.reportVerboseConsole);
+                        String report = reporter.generateReport(result, hardwareInfo);
+                        File logsFile = reporter.saveReportToServerLogs(result, report, new File("logs"));
+                        if (logsFile != null) {
+                            send(sender, "§a综合报告已写入服务端日志: " + logsFile.getPath());
+                        }
+                    }
                     send(sender, "§a=== 全部跑分完成 ===");
                 } catch (Throwable e) {
                     send(sender, "§c跑分失败: " + e.getMessage());

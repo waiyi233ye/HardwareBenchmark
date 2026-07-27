@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.hwbench</groupId>
         <artifactId>HardwareBenchmark-parent</artifactId>
-        <version>2.0.0</version>
+        <version>2.1.0</version>
     </parent>
 
     <artifactId>HardwareBenchmark-bukkit</artifactId>
@@ -25,6 +25,14 @@
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
             <version>${spigot.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- JNA：provided 作用域，不 shade 进 JAR。
+             Paper 1.7.10-1.16 无自带 JNA，运行时缺失时由 HardwareBenchmarkPlugin 降级到 /proc 硬件检测 -->
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna</artifactId>
+            <version>5.14.0</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
@@ -103,7 +111,6 @@
                                 <includes>
                                     <include>com.hwbench:HardwareBenchmark-common</include>
                                     <include>com.github.oshi:oshi-core</include>
-                                    <include>net.java.dev.jna:*</include>
                                     <include>com.google.code.gson:gson</include>
                                     <include>org.slf4j:slf4j-api</include>
                                 </includes>

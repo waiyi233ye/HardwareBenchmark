@@ -32,8 +32,14 @@ public class HardwareBenchmarkPlugin extends JavaPlugin {
 
         // 初始化硬件检测器（带容错：OSHI可能在Java 8环境加载失败）
         try {
+            Class.forName("com.sun.jna.Native");
+            // JNA 可用，使用 OSHI 检测
             hardwareDetector = new HardwareDetector();
             getLogger().info("OSHI硬件检测库加载成功");
+        } catch (ClassNotFoundException jnaNotFound) {
+            // JNA 不可用（Paper 1.7.10-1.16 无自带 JNA），降级到 /proc 检测
+            getLogger().warning("[HWBench] JNA 不可用，降级到 /proc 硬件检测模式");
+            hardwareDetector = null; // 跑分时通过 /proc 检测
         } catch (Throwable e) {
             getLogger().warning("OSHI硬件检测库加载失败，将使用基础检测模式: " + e.getMessage());
             hardwareDetector = null;
@@ -73,8 +79,13 @@ public class HardwareBenchmarkPlugin extends JavaPlugin {
         // 注册命令
         BenchCommand command = new BenchCommand(this, serverController, hardwareDetector,
                 libraryManager, resultReporter, config);
-        getCommand("hwbench").setExecutor(command);
-        getCommand("hwbench").setTabCompleter(command);
+        org.bukkit.command.PluginCommand cmd = getCommand("hwbench");
+        if (cmd == null) {
+            getLogger().severe("[HWBench] 命令 hwbench 未在 plugin.yml 中注册，插件功能受限");
+        } else {
+            cmd.setExecutor(command);
+            cmd.setTabCompleter(command);
+        }
 
         getLogger().info("HardwareBenchmark 插件已启用！");
         getLogger().info("MC版本: " + getServer().getVersion()

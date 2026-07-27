@@ -1,11 +1,13 @@
 package com.hwbench.fabric;
 
+import com.hwbench.core.BenchConfig;
 import com.hwbench.core.BenchmarkResult;
 import com.hwbench.core.CPUBenchmark;
 import com.hwbench.core.DiskBenchmark;
 import com.hwbench.core.HardwareDetector;
 import com.hwbench.core.LibraryManager;
 import com.hwbench.core.MemoryBenchmark;
+import com.hwbench.core.ResultReporter;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -42,19 +44,23 @@ public class HWBenchFabric implements ModInitializer {
 
         // 注册命令（使用 v1 API 以兼容 1.16.5+）
         CommandRegistrationCallback.EVENT.register((dispatcher, dedicated) -> {
-            dispatcher.register(literal("hwbench")
-                    .requires(src -> src.hasPermissionLevel(2))
-                    .then(literal("detect").executes(this::runDetect))
-                    .then(literal("cpu").executes(this::runCpu))
-                    .then(literal("mem").executes(this::runMem))
-                    .then(literal("disk").executes(this::runDisk))
-                    .then(literal("all").executes(this::runAll))
-                    .then(literal("libs").executes(this::runLibs))
-                    .then(literal("lock").executes(this::lockServer))
-                    .then(literal("unlock").executes(this::unlockServer))
-                    .then(literal("help").executes(this::help))
-                    .executes(this::help)
-            );
+            try {
+                dispatcher.register(literal("hwbench")
+                        .requires(src -> src.hasPermissionLevel(2))
+                        .then(literal("detect").executes(this::runDetect))
+                        .then(literal("cpu").executes(this::runCpu))
+                        .then(literal("mem").executes(this::runMem))
+                        .then(literal("disk").executes(this::runDisk))
+                        .then(literal("all").executes(this::runAll))
+                        .then(literal("libs").executes(this::runLibs))
+                        .then(literal("lock").executes(this::lockServer))
+                        .then(literal("unlock").executes(this::unlockServer))
+                        .then(literal("help").executes(this::help))
+                        .executes(this::help)
+                );
+            } catch (Exception e) {
+                LOGGER.error("注册 /hwbench 命令失败", e);
+            }
         });
 
         // 拦截玩家登录（锁定时拒绝）
@@ -96,13 +102,38 @@ public class HWBenchFabric implements ModInitializer {
 
     private int runCpu(CommandContext<ServerCommandSource> ctx) {
         ServerCommandSource src = ctx.getSource();
+        // 在线程外部加载 BenchConfig 单例，避免线程安全问题
+        BenchConfig config = BenchConfig.load(new File("."));
         send(src, "§e开始 CPU 跑分，服务器可能卡顿...");
         startBenchThread("HWBench-CPU", src, () -> {
-            CPUBenchmark bench = new CPUBenchmark(100, 3, 512, false);
+            BenchmarkResult result = new BenchmarkResult();
+            String hardwareInfo = "";
+            try {
+                HardwareDetector detector = new HardwareDetector();
+                detector.detectAll(result);
+                hardwareInfo = detector.generateReport(result);
+            } catch (Throwable ignored) { }
+
+            CPUBenchmark bench = new CPUBenchmark(
+                    config.cpuDonutFrames, config.cpuComputeIterations, config.cpuMatrixSize,
+                    config.cpuShowAnimation, config.cpuPrimeRange, config.cpuFloatIterations,
+                    config.cpuTimeoutSeconds
+            );
             BenchmarkResult.TestResult r = bench.runAll();
+            result.addTestResult("cpu", r);
             send(src, String.format("§aCPU跑分完成: 得分 %.2f, 耗时 %dms", r.getScore(), r.getDurationMs()));
             for (String line : r.getDetails().split("\n")) {
                 send(src, line);
+            }
+
+            // 写入服务端 logs/hwbench/ 目录
+            if (config.reportWriteToServerLogs) {
+                ResultReporter reporter = new ResultReporter(true, "hwbench-reports", false);
+                String report = reporter.generateReport(result, hardwareInfo);
+                File logsFile = reporter.saveReportToServerLogs(result, report, new File("logs"));
+                if (logsFile != null) {
+                    send(src, "§a报告已写入服务端日志: " + logsFile.getPath());
+                }
             }
         }, "CPU跑分失败");
         return 1;
@@ -110,23 +141,70 @@ public class HWBenchFabric implements ModInitializer {
 
     private int runMem(CommandContext<ServerCommandSource> ctx) {
         ServerCommandSource src = ctx.getSource();
+        // 在线程外部加载 BenchConfig 单例，避免线程安全问题
+        BenchConfig config = BenchConfig.load(new File("."));
         send(src, "§e开始内存跑分...");
         startBenchThread("HWBench-Mem", src, () -> {
-            // 768MB 堆内存下 64MB 数组+64MB 拷贝（共128MB）会 OOM，降至 32MB
-            MemoryBenchmark bench = new MemoryBenchmark(32, 3);
+            BenchmarkResult result = new BenchmarkResult();
+            String hardwareInfo = "";
+            try {
+                HardwareDetector detector = new HardwareDetector();
+                detector.detectAll(result);
+                hardwareInfo = detector.generateReport(result);
+            } catch (Throwable ignored) { }
+
+            MemoryBenchmark bench = new MemoryBenchmark(
+                    config.memArraySizeMB, config.memIterations, config.memRandomAccessCount,
+                    config.memTimeoutSeconds
+            );
             BenchmarkResult.TestResult r = bench.runAll();
+            result.addTestResult("memory", r);
             send(src, String.format("§a内存跑分完成: 得分 %.2f, 耗时 %dms", r.getScore(), r.getDurationMs()));
+
+            // 写入服务端 logs/hwbench/ 目录
+            if (config.reportWriteToServerLogs) {
+                ResultReporter reporter = new ResultReporter(true, "hwbench-reports", false);
+                String report = reporter.generateReport(result, hardwareInfo);
+                File logsFile = reporter.saveReportToServerLogs(result, report, new File("logs"));
+                if (logsFile != null) {
+                    send(src, "§a报告已写入服务端日志: " + logsFile.getPath());
+                }
+            }
         }, "内存跑分失败");
         return 1;
     }
 
     private int runDisk(CommandContext<ServerCommandSource> ctx) {
         ServerCommandSource src = ctx.getSource();
+        // 在线程外部加载 BenchConfig 单例，避免线程安全问题
+        BenchConfig config = BenchConfig.load(new File("."));
         send(src, "§e开始磁盘跑分...");
         startBenchThread("HWBench-Disk", src, () -> {
-            DiskBenchmark bench = new DiskBenchmark(64, 4, 5, new File("."));
+            BenchmarkResult result = new BenchmarkResult();
+            String hardwareInfo = "";
+            try {
+                HardwareDetector detector = new HardwareDetector();
+                detector.detectAll(result);
+                hardwareInfo = detector.generateReport(result);
+            } catch (Throwable ignored) { }
+
+            DiskBenchmark bench = new DiskBenchmark(
+                    config.diskFileSizeMB, config.diskBlockSizeKB, config.diskRandomIOCount, new File("."),
+                    config.diskTimeoutSeconds
+            );
             BenchmarkResult.TestResult r = bench.runAll();
+            result.addTestResult("disk", r);
             send(src, String.format("§a磁盘跑分完成: 得分 %.2f, 耗时 %dms", r.getScore(), r.getDurationMs()));
+
+            // 写入服务端 logs/hwbench/ 目录
+            if (config.reportWriteToServerLogs) {
+                ResultReporter reporter = new ResultReporter(true, "hwbench-reports", false);
+                String report = reporter.generateReport(result, hardwareInfo);
+                File logsFile = reporter.saveReportToServerLogs(result, report, new File("logs"));
+                if (logsFile != null) {
+                    send(src, "§a报告已写入服务端日志: " + logsFile.getPath());
+                }
+            }
         }, "磁盘跑分失败");
         return 1;
     }
@@ -158,17 +236,84 @@ public class HWBenchFabric implements ModInitializer {
 
     private int runAll(CommandContext<ServerCommandSource> ctx) {
         ServerCommandSource src = ctx.getSource();
+        // 在线程外部加载 BenchConfig 单例，避免线程安全问题
+        BenchConfig config = BenchConfig.load(new File("."));
         send(src, "§e=== 运行全部跑分 ===");
         send(src, "§c注意：跑分期间服务器会卡顿，建议先 /hwbench lock");
         startBenchThread("HWBench-All", src, () -> {
-            runDetect(ctx);
+            BenchmarkResult result = new BenchmarkResult();
+            String hardwareInfo = "";
+
+            // 硬件检测
+            send(src, "§e正在检测硬件信息...");
+            try {
+                HardwareDetector detector = new HardwareDetector();
+                detector.detectAll(result);
+                hardwareInfo = detector.generateReport(result);
+                for (String line : hardwareInfo.split("\n")) {
+                    send(src, line);
+                }
+            } catch (Throwable e) {
+                send(src, "§c硬件检测失败: " + e.getMessage());
+            }
             sleepQuiet(500);
-            runCpu(ctx);
+
+            // CPU跑分
+            send(src, "§e开始 CPU 跑分...");
+            try {
+                CPUBenchmark cpuBench = new CPUBenchmark(
+                        config.cpuDonutFrames, config.cpuComputeIterations, config.cpuMatrixSize,
+                        config.cpuShowAnimation, config.cpuPrimeRange, config.cpuFloatIterations,
+                        config.cpuTimeoutSeconds
+                );
+                BenchmarkResult.TestResult r = cpuBench.runAll();
+                result.addTestResult("cpu", r);
+                send(src, String.format("§aCPU跑分完成: 得分 %.2f, 耗时 %dms", r.getScore(), r.getDurationMs()));
+            } catch (Throwable e) {
+                send(src, "§cCPU跑分失败: " + e.getMessage());
+            }
             sleepQuiet(500);
-            runMem(ctx);
+
+            // 内存跑分
+            send(src, "§e开始内存跑分...");
+            try {
+                MemoryBenchmark memBench = new MemoryBenchmark(
+                        config.memArraySizeMB, config.memIterations, config.memRandomAccessCount,
+                        config.memTimeoutSeconds
+                );
+                BenchmarkResult.TestResult r = memBench.runAll();
+                result.addTestResult("memory", r);
+                send(src, String.format("§a内存跑分完成: 得分 %.2f, 耗时 %dms", r.getScore(), r.getDurationMs()));
+            } catch (Throwable e) {
+                send(src, "§c内存跑分失败: " + e.getMessage());
+            }
             sleepQuiet(500);
-            runDisk(ctx);
+
+            // 磁盘跑分
+            send(src, "§e开始磁盘跑分...");
+            try {
+                DiskBenchmark diskBench = new DiskBenchmark(
+                        config.diskFileSizeMB, config.diskBlockSizeKB, config.diskRandomIOCount, new File("."),
+                        config.diskTimeoutSeconds
+                );
+                BenchmarkResult.TestResult r = diskBench.runAll();
+                result.addTestResult("disk", r);
+                send(src, String.format("§a磁盘跑分完成: 得分 %.2f, 耗时 %dms", r.getScore(), r.getDurationMs()));
+            } catch (Throwable e) {
+                send(src, "§c磁盘跑分失败: " + e.getMessage());
+            }
+
             send(src, "§a=== 全部跑分完成 ===");
+
+            // 生成综合报告并写入服务端 logs/hwbench/ 目录
+            if (config.reportWriteToServerLogs) {
+                ResultReporter reporter = new ResultReporter(true, "hwbench-reports", false);
+                String report = reporter.generateReport(result, hardwareInfo);
+                File logsFile = reporter.saveReportToServerLogs(result, report, new File("logs"));
+                if (logsFile != null) {
+                    send(src, "§a综合报告已写入服务端日志: " + logsFile.getPath());
+                }
+            }
         }, "跑分失败");
         return 1;
     }

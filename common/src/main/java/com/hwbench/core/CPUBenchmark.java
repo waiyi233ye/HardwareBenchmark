@@ -16,59 +16,119 @@ public class CPUBenchmark {
     private final int computeIterations;
     private final int matrixSize;
     private final boolean showAnimation;
+    private final int primeRange;
+    private final int floatIterations;
+    private final int timeoutSeconds;
 
-    public CPUBenchmark(int donutFrames, int computeIterations, int matrixSize, boolean showAnimation) {
+    /**
+     * 完整构造：所有跑分参数从外部传入（通常由 BenchConfig 提供）。
+     *
+     * @param donutFrames      甜甜圈渲染帧数
+     * @param computeIterations 矩阵乘法迭代次数
+     * @param matrixSize       矩阵边长
+     * @param showAnimation    是否显示渲染动画
+     * @param primeRange       质数筛上界
+     * @param floatIterations  浮点循环迭代次数
+     * @param timeoutSeconds   整体跑分超时阈值（秒）
+     */
+    public CPUBenchmark(int donutFrames, int computeIterations, int matrixSize, boolean showAnimation,
+                       int primeRange, int floatIterations, int timeoutSeconds) {
         this.donutFrames = donutFrames;
         this.computeIterations = computeIterations;
         this.matrixSize = matrixSize;
         this.showAnimation = showAnimation;
+        this.primeRange = primeRange;
+        this.floatIterations = floatIterations;
+        this.timeoutSeconds = timeoutSeconds;
+    }
+
+    /**
+     * 向后兼容构造：保留旧的 4 参数签名，质数筛/浮点迭代/超时使用默认值。
+     */
+    public CPUBenchmark(int donutFrames, int computeIterations, int matrixSize, boolean showAnimation) {
+        this(donutFrames, computeIterations, matrixSize, showAnimation,
+             10_000_000, 50_000_000, 60);
     }
 
     /**
      * 运行完整CPU跑分
+     *
+     * <p>超时机制：以 {@link #timeoutSeconds} 为整体预算，每个子阶段开始前检查已用时间，
+     * 超时则跳过后续阶段并在结果中标注「超时」。avgScore 按实际完成的阶段数计算，
+     * 避免未跑阶段把整体分数拉低到 0。</p>
      */
     public BenchmarkResult.TestResult runAll() {
         long totalStart = System.nanoTime();
+        long timeoutNanos = (long) timeoutSeconds * 1_000_000_000L;
 
         StringBuilder details = new StringBuilder();
         double totalScore = 0;
+        int completedStages = 0;
+        boolean timedOut = false;
 
         // 1. 甜甜圈渲染跑分
         DonutResult donutResult = runDonutBenchmark();
         double donutScore = donutResult.score;
         totalScore += donutScore;
+        completedStages++;
         details.append(String.format("  甜甜圈渲染: %d帧, %d次运算, 耗时%.1fms, 得分%.1f\n",
                 donutResult.frames, donutResult.operations,
                 donutResult.durationMs, donutScore));
 
         // 2. 多线程矩阵乘法跑分
-        MatrixResult matrixResult = runMatrixBenchmark();
-        double matrixScore = matrixResult.score;
-        totalScore += matrixScore;
-        details.append(String.format("  多线程矩阵乘法: %dx%d, %d线程, 耗时%.1fms, 得分%.1f\n",
-                matrixSize, matrixSize, matrixResult.threads,
-                matrixResult.durationMs, matrixScore));
+        if (!timedOut && System.nanoTime() - totalStart > timeoutNanos) {
+            timedOut = true;
+        }
+        if (!timedOut) {
+            MatrixResult matrixResult = runMatrixBenchmark();
+            double matrixScore = matrixResult.score;
+            totalScore += matrixScore;
+            completedStages++;
+            details.append(String.format("  多线程矩阵乘法: %dx%d, %d线程, 耗时%.1fms, 得分%.1f\n",
+                    matrixSize, matrixSize, matrixResult.threads,
+                    matrixResult.durationMs, matrixScore));
+        }
 
         // 3. 整数运算跑分（质数筛）
-        PrimeResult primeResult = runPrimeBenchmark();
-        double primeScore = primeResult.score;
-        totalScore += primeScore;
-        details.append(String.format("  整数运算(质数筛): 范围0-%d, 找到%d个质数, 耗时%.1fms, 得分%.1f\n",
-                primeResult.range, primeResult.count,
-                primeResult.durationMs, primeScore));
+        if (!timedOut && System.nanoTime() - totalStart > timeoutNanos) {
+            timedOut = true;
+        }
+        if (!timedOut) {
+            PrimeResult primeResult = runPrimeBenchmark();
+            double primeScore = primeResult.score;
+            totalScore += primeScore;
+            completedStages++;
+            details.append(String.format("  整数运算(质数筛): 范围0-%d, 找到%d个质数, 耗时%.1fms, 得分%.1f\n",
+                    primeResult.range, primeResult.count,
+                    primeResult.durationMs, primeScore));
+        }
 
         // 4. 浮点运算跑分
-        FloatResult floatResult = runFloatBenchmark();
-        double floatScore = floatResult.score;
-        totalScore += floatScore;
-        details.append(String.format("  浮点运算: %d次迭代, 耗时%.1fms, 得分%.1f\n",
-                floatResult.iterations, floatResult.durationMs, floatScore));
+        if (!timedOut && System.nanoTime() - totalStart > timeoutNanos) {
+            timedOut = true;
+        }
+        if (!timedOut) {
+            FloatResult floatResult = runFloatBenchmark();
+            double floatScore = floatResult.score;
+            totalScore += floatScore;
+            completedStages++;
+            details.append(String.format("  浮点运算: %d次迭代, 耗时%.1fms, 得分%.1f\n",
+                    floatResult.iterations, floatResult.durationMs, floatScore));
+        }
 
         long totalDuration = System.nanoTime() - totalStart;
-        double avgScore = totalScore / 4.0;
+        // 按实际完成阶段数计算均分，避免未跑阶段把分数拉到 0
+        double avgScore = completedStages > 0 ? totalScore / completedStages : 0;
 
+        if (timedOut) {
+            details.append("  ⚠ 已达超时阈值（")
+                   .append(timeoutSeconds)
+                   .append("秒），后续阶段被跳过\n");
+        }
+
+        String testName = timedOut ? "CPU跑分（超时）" : "CPU跑分";
         return new BenchmarkResult.TestResult(
-                "CPU跑分", avgScore, "分", totalDuration / 1_000_000,
+                testName, avgScore, "分", totalDuration / 1_000_000,
                 details.toString().trim(), 0
         );
     }
@@ -140,7 +200,7 @@ public class CPUBenchmark {
      * 整数运算跑分 - 埃拉托斯特尼筛法
      */
     private PrimeResult runPrimeBenchmark() {
-        int range = 10_000_000;
+        int range = this.primeRange;
         long start = System.nanoTime();
 
         boolean[] isPrime = new boolean[range + 1];
@@ -173,7 +233,7 @@ public class CPUBenchmark {
      * 浮点运算跑分 - 大量浮点乘加运算
      */
     private FloatResult runFloatBenchmark() {
-        int iterations = 50_000_000;
+        int iterations = this.floatIterations;
         long start = System.nanoTime();
 
         double x = 1.0;

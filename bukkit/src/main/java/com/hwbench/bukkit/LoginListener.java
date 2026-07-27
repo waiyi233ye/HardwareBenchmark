@@ -19,7 +19,7 @@ public class LoginListener implements Listener {
         this.serverController = serverController;
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onLogin(PlayerLoginEvent event) {
         if (serverController.isLocked()) {
             event.disallow(PlayerLoginEvent.Result.KICK_OTHER, serverController.getLockMessage());

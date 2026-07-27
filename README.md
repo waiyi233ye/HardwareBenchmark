@@ -29,9 +29,9 @@ v2.0.0 起采用**通用 JAR（Universal JAR）**架构，三大平台各仅发�
 
 | 平台 | MC 版本范围 | 覆盖版本数 | Java 版本 | 推荐下载的 JAR |
 |------|------------|-----------|----------|---------------|
-| Bukkit/Spigot/Paper | 1.7.10 ~ 1.21.3（全版本） | 59 | Java 8 / Java 17（按 MC 版本自动选择） | `HardwareBenchmark-2.0.0-bukkit-universal.jar` |
-| Fabric | 1.14 ~ 1.21.3（全 Fabric 支持版本） | 全部版本 | Java 8 / Java 17（按 MC 版本自动选择） | `HardwareBenchmark-2.0.0-fabric-universal.jar` |
-| Forge | 1.7.10 ~ 1.21.3（含 NeoForge 1.20.2+） | 59 | Java 8 / Java 17（按 MC 版本自动选择） | `HardwareBenchmark-2.0.0-forge-universal.jar` |
+| Bukkit/Spigot/Paper | 1.7.10 ~ 1.21.3（全版本） | 59 | Java 8 / Java 17（按 MC 版本自动选择） | `HardwareBenchmark-2.1.0-bukkit-universal.jar` |
+| Fabric | 1.14 ~ 1.21.3（全 Fabric 支持版本） | 全部版本 | Java 8 / Java 17（按 MC 版本自动选择） | `HardwareBenchmark-2.1.0-fabric-universal.jar` |
+| Forge | 1.7.10 ~ 1.21.3（含 NeoForge 1.20.2+） | 59 | Java 8 / Java 17（按 MC 版本自动选择） | `HardwareBenchmark-2.1.0-forge-universal.jar` |
 
 > 💡 **通用 JAR 实现机制**：
 > - **Bukkit**：MRJAR（Multi-Release JAR）+ 运行时反射版本检测，Java 8 与 Java 17 字节码共存在同一 JAR 中，按运行环境自动加载对应版本类。
@@ -43,7 +43,7 @@ v2.0.0 起采用**通用 JAR（Universal JAR）**架构，三大平台各仅发�
 
 > 📌 **回滚保留规则**：发布新版本时，上一代 JAR 文件会保留在 Release 资产中，文件名添加 `-prev` 后缀（如 `HardwareBenchmark-1.2.1-bukkit-java8-prev.jar`），供用户在遇到问题时回滚对比。
 
-📦 [前往 Release 页面下载 JAR](https://github.com/waiyi233ye/HardwareBenchmark/releases/tag/v2.0.0)
+📦 [前往 Release 页面下载 JAR](https://github.com/waiyi233ye/HardwareBenchmark/releases/tag/v2.1.0)
 
 ## 安装
 
@@ -55,7 +55,7 @@ v2.0.0 起采用**通用 JAR（Universal JAR）**架构，三大平台各仅发�
 4. Forge：将 JAR 放入服务器的 `mods/` 目录
 5. 重启服务器
 
-> ↩️ **回滚**：如遇问题，可从同一 Release 页面下载 `-prev` 后缀的 v1.2.1 JAR（如 `HardwareBenchmark-1.2.1-bukkit-java8-prev.jar`）替换回滚，与 v2.0.0 共存于同一 Release 资产中。
+> ↩️ **回滚**：如遇问题，可从同一 Release 页面下载 -prev 后缀的 v2.0.0 JAR（如 HardwareBenchmark-2.0.0-bukkit-universal-prev.jar）替换回滚，与 v2.1.0 共存于同一 Release 资产中。
 
 ## 命令
 

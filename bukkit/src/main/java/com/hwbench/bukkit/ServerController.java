@@ -38,12 +38,11 @@ public class ServerController {
      * @param callback 锁定完成后的回调
      */
     public void lock(final Runnable callback) {
-        if (locked.get()) {
+        if (!locked.compareAndSet(false, true)) {
             callback.run();
             return;
         }
 
-        locked.set(true);
         plugin.getLogger().info("[HWBench] 正在锁定服务器...");
 
         // 提示在线玩家
